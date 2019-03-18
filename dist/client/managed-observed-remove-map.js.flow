@@ -1,0 +1,78 @@
+// @flow
+
+const { ObservedRemoveMap } = require('observed-remove');
+const { EventEmitter } = require('events');
+
+class ManagedObservedRemoveMap<K, V> extends EventEmitter {
+  map:ObservedRemoveMap<K, V>;
+
+  constructor(map:ObservedRemoveMap<K, V>) {
+    super();
+    this.map = map;
+    map.on('set', (key, value) => {
+      this.emit('set', key, value);
+    });
+    map.on('delete', (key, value) => {
+      this.emit('delete', key, value);
+    });
+  }
+
+  /* :: @@iterator(): Iterator<[K, V]> { return ({}: any); } */
+  // $FlowFixMe: computed property
+  [Symbol.iterator]() {
+    return this.map.entries();
+  }
+
+  set(key:K, value:V) {
+    this.map.set(key, value);
+    return this;
+  }
+
+  get(key:K): V | void { // eslint-disable-line consistent-return
+    return this.map.get(key);
+  }
+
+  delete(key:K):void {
+    this.map.delete(key);
+  }
+
+  clear(): void {
+    for (const key of this.map.keys()) {
+      this.map.delete(key);
+    }
+  }
+
+  entries():Iterator<[K, V]> {
+    return this.map.entries();
+  }
+
+  forEach(callback:Function, thisArg?:any):void {
+    if (thisArg) {
+      for (const [key, value] of this.map.entries()) {
+        callback.bind(thisArg)(value, key, this);
+      }
+    } else {
+      for (const [key, value] of this.map.entries()) {
+        callback(value, key, this);
+      }
+    }
+  }
+
+  has(key:K): boolean {
+    return this.map.has(key);
+  }
+
+  keys():Iterator<K> {
+    return this.map.keys();
+  }
+
+  values():Iterator<V> {
+    return this.map.values();
+  }
+
+  get size():number {
+    return this.map.size;
+  }
+}
+
+module.exports = ManagedObservedRemoveMap;
