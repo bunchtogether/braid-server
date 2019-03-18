@@ -2,7 +2,7 @@
 
 const uuid = require('uuid');
 const { shuffle } = require('lodash');
-const ConnectionHandler = require('../src');
+const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');
 require('./lib/map-utils');
 
@@ -18,19 +18,19 @@ describe(`${count} Peers in a mesh`, () => {
     for (let i = 0; i < count; i += 1) {
       const port = startPort + i;
       const ws = await startWebsocketServer('0.0.0.0', port);
-      const connectionHandler = new ConnectionHandler(ws[0]);
+      const server = new Server(ws[0]);
       const stop = ws[1];
       peers.push({
         port,
-        data: connectionHandler.data,
-        connectionHandler,
+        data: server.data,
+        server,
         stop,
       });
     }
     const peerPromises = [];
     for (let i = 0; i < count; i += 1) {
       for (let j = i + 1; j < count; j += 1) {
-        peerPromises.push(peers[i].connectionHandler.connectToPeer(`ws://localhost:${peers[j].port}`, {}));
+        peerPromises.push(peers[i].server.connectToPeer(`ws://localhost:${peers[j].port}`, {}));
       }
     }
     await Promise.all(peerPromises);
@@ -47,27 +47,27 @@ describe(`${count} Peers in a mesh`, () => {
   });
 
   test('Should track peer connections', async () => {
-    for (const { connectionHandler } of peers) {
-      const peerIds = connectionHandler.peers.get(connectionHandler.id);
+    for (const { server } of peers) {
+      const peerIds = server.peers.get(server.id);
       expect(peerIds).toBeInstanceOf(Array);
       expect(peerIds.length).toEqual(count - 1);
     }
   });
 
   test('Should remove a dropped peer', async () => {
-    const { connectionHandler } = peers[0];
-    await connectionHandler.close();
-    await expect(peers[1].connectionHandler.peers).toReceiveProperty(connectionHandler.id, undefined);
+    const { server } = peers[0];
+    await server.close();
+    await expect(peers[1].server.peers).toReceiveProperty(server.id, undefined);
   });
 
   test('Should close gracefully', async () => {
-    await Promise.all(peers.map(({ connectionHandler }) => connectionHandler.close()));
-    for (const { connectionHandler } of peers) {
-      const peerIds = connectionHandler.peers.get(connectionHandler.id);
+    await Promise.all(peers.map(({ server }) => server.close()));
+    for (const { server } of peers) {
+      const peerIds = server.peers.get(server.id);
       expect(peerIds).toBeUndefined();
     }
     await Promise.all(peers.map(({ stop }) => stop()));
-    peers.map(({ connectionHandler }) => connectionHandler.throwOnLeakedReferences());
+    peers.map(({ server }) => server.throwOnLeakedReferences());
   });
 });
 

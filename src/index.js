@@ -37,7 +37,7 @@ function randomInteger() {
   return crypto.randomBytes(4).readUInt32BE(0, true);
 }
 
-class ConnectionHandler extends EventEmitter {
+class Server extends EventEmitter {
   constructor(server:TemplatedApp, websocketPath?:string = '/*', websocketOptions?: Object = { compression: 0, maxPayloadLength: 16 * 1024 * 1024, idleTimeout: 10 }) {
     super();
     this.messageHashes = new LruCache({ max: 500 });
@@ -699,4 +699,4 @@ class ConnectionHandler extends EventEmitter {
   subscribeRequestHandler: (key:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
 }
 
-module.exports = ConnectionHandler;
+module.exports = Server;

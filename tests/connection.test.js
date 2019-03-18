@@ -3,7 +3,7 @@
 const uuid = require('uuid');
 const { isEqual } = require('lodash');
 const Client = require('@bunchtogether/braid-client');
-const ConnectionHandler = require('../src');
+const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');
 const {
   OPEN,
@@ -14,29 +14,29 @@ const port = 10000 + Math.round(Math.random() * 10000);
 
 jest.setTimeout(30000);
 
-describe('Connection Handler', () => {
+describe('Connection', () => {
   let stopWebsocketServer;
-  let connectionHandler;
+  let server;
   let client;
 
   beforeAll(async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
-    connectionHandler = new ConnectionHandler(ws[0]);
+    server = new Server(ws[0]);
     stopWebsocketServer = ws[1];
     client = new Client(`ws://localhost:${port}`);
   });
 
   afterAll(async () => {
     await client.close();
-    await connectionHandler.close();
+    await server.close();
     await stopWebsocketServer();
-    connectionHandler.throwOnLeakedReferences();
+    server.throwOnLeakedReferences();
   });
 
   test('Should open the connection', async () => {
     const openPromise = new Promise((resolve, reject) => {
-      connectionHandler.once(OPEN, resolve);
-      connectionHandler.once(ERROR, reject);
+      server.once(OPEN, resolve);
+      server.once(ERROR, reject);
     });
     await client.open();
     await openPromise;
@@ -48,7 +48,7 @@ describe('Connection Handler', () => {
       [uuid.v4()]: uuid.v4(),
     };
     const handleCredentialsPromise = new Promise((resolve, reject) => {
-      connectionHandler.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
+      server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
         if (isEqual({ client: value, ip: '127.0.0.1' }, credentials)) {
           resolve();
           return { success: true, code: 200, message: 'OK' };

@@ -3,7 +3,7 @@
 const uuid = require('uuid');
 const { shuffle } = require('lodash');
 const Client = require('@bunchtogether/braid-client');
-const ConnectionHandler = require('../src');
+const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');
 require('./lib/map-utils');
 
@@ -20,19 +20,19 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
     for (let i = 0; i < count; i += 1) {
       const port = startPort + i;
       const ws = await startWebsocketServer('0.0.0.0', port);
-      const connectionHandler = new ConnectionHandler(ws[0]);
+      const server = new Server(ws[0]);
       const stop = ws[1];
       peers.push({
         port,
-        data: connectionHandler.data,
-        connectionHandler,
+        data: server.data,
+        server,
         stop,
       });
     }
     const peerPromises = [];
-    peerPromises.push(peers[0].connectionHandler.connectToPeer(`ws://localhost:${startPort + count - 1}`, {}));
+    peerPromises.push(peers[0].server.connectToPeer(`ws://localhost:${startPort + count - 1}`, {}));
     for (let i = 1; i < count; i += 1) {
-      peerPromises.push(peers[i].connectionHandler.connectToPeer(`ws://localhost:${peers[i].port - 1}`, {}));
+      peerPromises.push(peers[i].server.connectToPeer(`ws://localhost:${peers[i].port - 1}`, {}));
     }
     await Promise.all(peerPromises);
     client = new Client(`ws://localhost:${startPort + Math.floor(Math.random() * count)}`, {});
@@ -50,8 +50,8 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
 
   test('Should close gracefully', async () => {
     await client.close();
-    await Promise.all(peers.map(({ connectionHandler }) => connectionHandler.closePeerConnections()));
+    await Promise.all(peers.map(({ server }) => server.closePeerConnections()));
     await Promise.all(peers.map(({ stop }) => stop()));
-    peers.map(({ connectionHandler }) => connectionHandler.throwOnLeakedReferences());
+    peers.map(({ server }) => server.throwOnLeakedReferences());
   });
 });
