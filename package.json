@@ -1,8 +1,8 @@
 {
-  "name": "@bunchtogether/braid",
+  "name": "@bunchtogether/braid-server",
   "version": "1.0.0",
   "main": "dist/index.js",
-  "repository": "https://github.com/bunchtogether/braid.git",
+  "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
   "scripts": {
     "build": "rm -rf ./dist; flow-remove-types ./src --out-dir ./dist && flow-copy-source ./src ./dist",
