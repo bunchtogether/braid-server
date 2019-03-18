@@ -3,8 +3,8 @@
 const uuid = require('uuid');
 const { isEqual } = require('lodash');
 const Client = require('@bunchtogether/braid-client');
-const ConnectionHandler = require('../src/connection-handler');
-const startWebsocketServer = require('../src/ws-server');
+const ConnectionHandler = require('../src');
+const startWebsocketServer = require('./lib/ws-server');
 const {
   OPEN,
   ERROR,

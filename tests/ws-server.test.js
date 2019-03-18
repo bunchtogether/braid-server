@@ -1,6 +1,6 @@
 // @flow
 
-const startWebsocketServer = require('../src/ws-server');
+const startWebsocketServer = require('./lib/ws-server');
 
 const port = 10000 + Math.round(Math.random() * 10000);
 

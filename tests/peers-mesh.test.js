@@ -2,8 +2,8 @@
 
 const uuid = require('uuid');
 const { shuffle } = require('lodash');
-const ConnectionHandler = require('../src/connection-handler');
-const startWebsocketServer = require('../src/ws-server');
+const ConnectionHandler = require('../src');
+const startWebsocketServer = require('./lib/ws-server');
 require('./lib/map-utils');
 
 

@@ -3,8 +3,8 @@
 const uuid = require('uuid');
 const { shuffle } = require('lodash');
 const Client = require('@bunchtogether/braid-client');
-const ConnectionHandler = require('../src/connection-handler');
-const startWebsocketServer = require('../src/ws-server');
+const ConnectionHandler = require('../src');
+const startWebsocketServer = require('./lib/ws-server');
 require('./lib/map-utils');
 
 const startPort = 10000 + Math.round(Math.random() * 10000);
