@@ -56,16 +56,16 @@ describe(`${count} peers in a ring with a provider`, () => {
     for (const { server } of peers) {
       await expect(server.providers).toReceiveProperty(serverA.id, [key]);
     }
-    const [[globA, matcherA]] = serverA.providerMatchers.get(serverA.id);
-    const [[globB, matcherB]] = serverB.providerMatchers.get(serverA.id);
-    expect(globA).toEqual(key);
-    expect(globB).toEqual(key);
-    expect(matcherA).toBeInstanceOf(Function);
-    expect(matcherB).toBeInstanceOf(Function);
-    expect(matcherA(key)).toEqual(true);
-    expect(matcherB(key)).toEqual(true);
-    expect(matcherA(uuid.v4())).toEqual(false);
-    expect(matcherB(uuid.v4())).toEqual(false);
+    const [[regexStringA, regexA]] = serverA.providerRegexes.get(serverA.id);
+    const [[regexStringB, regexB]] = serverB.providerRegexes.get(serverA.id);
+    expect(regexStringA).toEqual(key);
+    expect(regexStringB).toEqual(key);
+    expect(regexA).toBeInstanceOf(RegExp);
+    expect(regexB).toBeInstanceOf(RegExp);
+    expect(regexA.test(key)).toEqual(true);
+    expect(regexB.test(key)).toEqual(true);
+    expect(regexA.test(uuid.v4())).toEqual(false);
+    expect(regexB.test(uuid.v4())).toEqual(false);
     await client.subscribe(key, () => {});
     for (const { server } of peers) {
       await expect(server.activeProviders).toReceiveProperty(key, [serverA.id, key]);

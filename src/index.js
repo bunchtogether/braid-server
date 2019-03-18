@@ -2,14 +2,13 @@
 
 const crypto = require('crypto');
 const farmhash = require('farmhash');
-const nanomatch = require('nanomatch');
 const { hash32 } = require('@bunchtogether/hash-object');
 const { ObservedRemoveMap, ObservedRemoveSet } = require('observed-remove');
 const DirectedGraphMap = require('directed-graph-map');
 const LruCache = require('lru-cache');
 const { EventEmitter } = require('events');
 const PeerConnection = require('./peer-connection');
-const logger = require('./lib/logger')('Connection Handler');
+const logger = require('./lib/logger')('Braid Server');
 const requestIp = require('./lib/request-ip');
 const {
   encode,
@@ -38,7 +37,7 @@ function randomInteger() {
 }
 
 class Server extends EventEmitter {
-  constructor(server:TemplatedApp, websocketPath?:string = '/*', websocketOptions?: Object = { compression: 0, maxPayloadLength: 16 * 1024 * 1024, idleTimeout: 10 }) {
+  constructor(uwsServer:TemplatedApp, websocketPath?:string = '/*', websocketOptions?: Object = { compression: 0, maxPayloadLength: 16 * 1024 * 1024, idleTimeout: 10 }) {
     super();
     this.messageHashes = new LruCache({ max: 500 });
 
@@ -50,9 +49,9 @@ class Server extends EventEmitter {
     //   Value: Array of peer IDs
     this.peers = new ObservedRemoveMap([], { bufferPublishing: 0 });
 
-    // Provider map, each peer stores globs it can provide data for
+    // Provider map, each peer stores regex strings it can provide data for
     //   Key: Peer ID
-    //   Value: Array of globs
+    //   Value: Array of regex strings
     this.providers = new ObservedRemoveMap([], { bufferPublishing: 0 });
 
     // Active provider map for each key
@@ -71,11 +70,11 @@ class Server extends EventEmitter {
 
     // Matcher functions for each provider
     //   Key: Peer ID
-    //   Value: Matcher function
-    this.providerMatchers = new Map();
+    //   Value: Array of regex strings, regex objects pairs
+    this.providerRegexes = new Map();
 
     // Callbacks for providing / unproviding
-    //   Key: glob
+    //   Key: regex strings
     //   Value: Callback function
     this.provideCallbacks = new Map();
 
@@ -151,42 +150,42 @@ class Server extends EventEmitter {
         this.prunePeers();
       }
     });
-    this.activeProviders.on('set', (key:string, [peerId:number, glob:string], previousPeerIdAndGlob?: [number, string]) => {
+    this.activeProviders.on('set', (key:string, [peerId:number, regexString:string], previousPeerIdAndRegexString?: [number, string]) => {
       if (this.id === peerId) {
-        const callback = this.provideCallbacks.get(glob);
+        const callback = this.provideCallbacks.get(regexString);
         if (!callback) {
-          this.unprovide(glob);
+          this.unprovide(regexString);
           return;
         }
         callback(key, true);
-      } else if (previousPeerIdAndGlob) {
-        const [previousPeerId, previousGlob] = previousPeerIdAndGlob;
+      } else if (previousPeerIdAndRegexString) {
+        const [previousPeerId, previousRegexString] = previousPeerIdAndRegexString;
         if (previousPeerId !== peerId) {
           return;
         }
-        const callback = this.provideCallbacks.get(previousGlob);
+        const callback = this.provideCallbacks.get(previousRegexString);
         if (!callback) {
-          this.unprovide(previousGlob);
+          this.unprovide(previousRegexString);
           return;
         }
         callback(key, false);
       }
     });
-    this.activeProviders.on('delete', (key:string, [peerId:number, glob:string]) => {
+    this.activeProviders.on('delete', (key:string, [peerId:number, regexString:string]) => {
       if (this.id === peerId) {
-        const callback = this.provideCallbacks.get(glob);
+        const callback = this.provideCallbacks.get(regexString);
         if (!callback) {
-          this.unprovide(glob);
+          this.unprovide(regexString);
           return;
         }
         callback(key, false);
       }
     });
-    this.providers.on('set', (peerId:number, globs:Array<string>) => {
-      this.providerMatchers.set(peerId, globs.map((glob) => [glob, nanomatch.matcher(glob)]));
+    this.providers.on('set', (peerId:number, regexStrings:Array<string>) => {
+      this.providerRegexes.set(peerId, regexStrings.map((regexString) => [regexString, new RegExp(regexString)]));
     });
     this.providers.on('delete', (peerId:number) => {
-      this.providerMatchers.delete(peerId);
+      this.providerRegexes.delete(peerId);
     });
     const options = Object.assign({}, websocketOptions, {
       open: (ws, req) => { // eslint-disable-line no-unused-vars
@@ -247,7 +246,7 @@ class Server extends EventEmitter {
         delete ws.credentials; // eslint-disable-line no-param-reassign
       },
     });
-    server.ws(websocketPath, options);
+    uwsServer.ws(websocketPath, options);
   }
 
   throwOnLeakedReferences() {
@@ -266,8 +265,8 @@ class Server extends EventEmitter {
     if (this.providers.size > 0) {
       throw new Error(`${this.providers.size} referenced providers`);
     }
-    if (this.providerMatchers.size > 0) {
-      throw new Error(`${this.providerMatchers.size} referenced provider matchers`);
+    if (this.providerRegexes.size > 0) {
+      throw new Error(`${this.providerRegexes.size} referenced provider matchers`);
     }
     if (this.subscriptions.size > 0) {
       throw new Error(`${this.subscriptions.size} referenced peer subscriptions`);
@@ -513,22 +512,22 @@ class Server extends EventEmitter {
     if (this.activeProviders.has(key)) {
       return;
     }
-    const peerIdAndGlobs = [];
-    for (const [peerId, matchers] of this.providerMatchers) {
-      for (const [glob, isMatch] of matchers) {
-        if (isMatch(key)) {
-          peerIdAndGlobs.push([peerId, glob]);
+    const peerIdAndRegexStrings = [];
+    for (const [peerId, regexes] of this.providerRegexes) {
+      for (const [regexString, regex] of regexes) {
+        if (regex.test(key)) {
+          peerIdAndRegexStrings.push([peerId, regexString]);
           break;
         }
       }
     }
-    if (peerIdAndGlobs.length === 0) {
+    if (peerIdAndRegexStrings.length === 0) {
       logger.error(`Unable to find provider for ${key}`);
       return;
     }
-    peerIdAndGlobs.sort((x, y) => (x[0] > y[0] ? 1 : -1));
-    const peerIdAndGlob = peerIdAndGlobs[farmhash.hash32(key) % peerIdAndGlobs.length];
-    this.activeProviders.set(key, peerIdAndGlob);
+    peerIdAndRegexStrings.sort((x, y) => (x[0] === y[0] ? (x[1] > y[1] ? 1 : -1) : (x[0] > y[0] ? 1 : -1)));
+    const peerIdAndRegexString = peerIdAndRegexStrings[farmhash.hash32(key) % peerIdAndRegexStrings.length];
+    this.activeProviders.set(key, peerIdAndRegexString);
   }
 
   removeSubscription(socketId:number, key:string) {
@@ -544,26 +543,26 @@ class Server extends EventEmitter {
     }
   }
 
-  provide(glob:string, callback: (key:string, active:boolean) => void) {
-    logger.info(`Providing ${glob}`);
-    const globs = new Set(this.providers.get(this.id));
-    globs.add(glob);
-    this.providers.set(this.id, [...globs]);
-    this.provideCallbacks.set(glob, callback);
+  provide(regexString:string, callback: (key:string, active:boolean) => void) {
+    logger.info(`Providing ${regexString}`);
+    const regexStrings = new Set(this.providers.get(this.id));
+    regexStrings.add(regexString);
+    this.providers.set(this.id, [...regexStrings]);
+    this.provideCallbacks.set(regexString, callback);
   }
 
-  unprovide(glob:string) {
-    logger.info(`Unproviding ${glob}`);
-    const globs = new Set(this.providers.get(this.id));
-    globs.delete(glob);
-    this.provideCallbacks.delete(glob);
-    if (globs.size > 0) {
-      this.providers.set(this.id, [...globs]);
+  unprovide(regexString:string) {
+    logger.info(`Unproviding ${regexString}`);
+    const regexStrings = new Set(this.providers.get(this.id));
+    regexStrings.delete(regexString);
+    this.provideCallbacks.delete(regexString);
+    if (regexStrings.size > 0) {
+      this.providers.set(this.id, [...regexStrings]);
     } else {
       this.providers.delete(this.id);
     }
-    for (const [key, [peerId, activeGlob]] of this.activeProviders) {
-      if (glob === activeGlob && peerId === this.id) {
+    for (const [key, [peerId, activeRegexString]] of this.activeProviders) {
+      if (regexString === activeRegexString && peerId === this.id) {
         this.activeProviders.delete(key);
         this.assignProvider(key);
       }
@@ -609,7 +608,7 @@ class Server extends EventEmitter {
     logger.info(`Disconnecting from peer ${peerId}`);
     this.peers.delete(peerId);
     this.providers.delete(peerId);
-    this.providerMatchers.delete(peerId);
+    this.providerRegexes.delete(peerId);
     for (const [pId, key] of this.peerSubscriptions) {
       if (pId === peerId) {
         this.peerSubscriptions.delete([pId, key]);
@@ -693,7 +692,7 @@ class Server extends EventEmitter {
   activeProviders:ObservedRemoveMap<string, [number, string]>;
   peerSubscriptions:ObservedRemoveMap<string>;
   peerSubscriptionMap:Map<number, Set<number>>;
-  providerMatchers: Map<number, Array<[string, (string) => boolean]>>;
+  providerRegexes: Map<number, Array<[string, RegExp]>>;
   peerRequestHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   credentialsHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   subscribeRequestHandler: (key:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
