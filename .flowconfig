@@ -2,6 +2,7 @@
 
 .*/node_modules/documentation/*
 .*/dist/.*.flow
+.*/node_modules/deepstream.io/test/*
 [include]
 
 <<PROJECT_ROOT>>/../messagepack

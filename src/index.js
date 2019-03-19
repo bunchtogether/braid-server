@@ -39,7 +39,7 @@ function randomInteger() {
 }
 
 class Server extends EventEmitter {
-  constructor(uwsServer:TemplatedApp, websocketPath?:string = '/*', websocketOptions?: Object = { compression: 0, maxPayloadLength: 128 * 1024 * 1024, idleTimeout: 10 }) {
+  constructor(uwsServer:TemplatedApp, websocketPath?:string = '/*', websocketOptions?: Object = { compression: 0, maxPayloadLength: 8 * 1024 * 1024, idleTimeout: 10 }) {
     super();
 
     this.messageHashes = new LruCache({ max: 500 });
@@ -106,6 +106,14 @@ class Server extends EventEmitter {
     this.logger = makeLogger(`Braid Server ${this.id}`);
 
     this.isClosing = false;
+
+    this.flushInterval = setInterval(() => {
+      this.data.flush();
+      this.peers.flush();
+      this.providers.flush();
+      this.activeProviders.flush();
+      this.peerSubscriptions.flush();
+    }, 10000);
 
     this.setCredentialsHandler(async (credentials: Object) => // eslint-disable-line no-unused-vars
       ({ success: true, code: 200, message: 'OK' }),
@@ -438,16 +446,16 @@ class Server extends EventEmitter {
     }
     this.messageHashes.set(hash, true);
     if (message instanceof DataDump) {
-      this.data.process(message.queue);
+      this.data.process(message.queue, true);
       this.publishData(message.queue);
     } else if (message instanceof PeerSubscriptionDump) {
-      this.peerSubscriptions.process(message.queue);
+      this.peerSubscriptions.process(message.queue, true);
     } else if (message instanceof ProviderDump) {
-      this.providers.process(message.queue);
+      this.providers.process(message.queue, true);
     } else if (message instanceof ActiveProviderDump) {
-      this.activeProviders.process(message.queue);
+      this.activeProviders.process(message.queue, true);
     } else if (message instanceof PeerDump) {
-      this.peers.process(message.queue);
+      this.peers.process(message.queue, true);
     }
     this.publishDumpToPeers(message);
   }
@@ -643,6 +651,7 @@ class Server extends EventEmitter {
       this.logger.info('Closed');
     }
     this.isClosing = false;
+    clearInterval(this.flushInterval);
   }
 
   async connectToPeer(address:string, credentials?: Object) {
@@ -684,11 +693,11 @@ class Server extends EventEmitter {
   }
 
   handlePeerSync(peerSync: PeerSync) {
-    this.data.process(peerSync.data.queue);
-    this.peers.process(peerSync.peers.queue);
-    this.providers.process(peerSync.providers.queue);
-    this.activeProviders.process(peerSync.activeProviders.queue);
-    this.peerSubscriptions.process(peerSync.peerSubscriptions.queue);
+    this.data.process(peerSync.data.queue, true);
+    this.peers.process(peerSync.peers.queue, true);
+    this.providers.process(peerSync.providers.queue, true);
+    this.activeProviders.process(peerSync.activeProviders.queue, true);
+    this.peerSubscriptions.process(peerSync.peerSubscriptions.queue, true);
     const peerConnection = this.peerConnections.get(peerSync.id);
     if (peerConnection) {
       peerConnection.ws.send(encode(new PeerSyncResponse(this.id)));
@@ -783,6 +792,7 @@ class Server extends EventEmitter {
 
   isClosing: boolean;
   id: number;
+  flushInterval: IntervalID;
   messageHashes: LruCache;
   subscriptions:DirectedGraphMap<string, string>;
   peerSockets:DirectedGraphMap<number, number>;
