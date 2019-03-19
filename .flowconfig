@@ -4,6 +4,9 @@
 .*/dist/.*.flow
 [include]
 
+<<PROJECT_ROOT>>/../messagepack
+<<PROJECT_ROOT>>/../client
+
 [libs]
 
 flow/

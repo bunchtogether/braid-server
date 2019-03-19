@@ -8,7 +8,7 @@ const DirectedGraphMap = require('directed-graph-map');
 const LruCache = require('lru-cache');
 const { EventEmitter } = require('events');
 const PeerConnection = require('./peer-connection');
-const logger = require('./lib/logger')('Braid Server');
+const makeLogger = require('./lib/logger');
 const requestIp = require('./lib/request-ip');
 const {
   encode,
@@ -21,6 +21,8 @@ const {
   ActiveProviderDump,
   PeerDump,
   PeerSubscriptionDump,
+  PeerSync,
+  PeerSyncResponse,
   PeerRequest,
   PeerResponse,
   SubscribeRequest,
@@ -37,8 +39,9 @@ function randomInteger() {
 }
 
 class Server extends EventEmitter {
-  constructor(uwsServer:TemplatedApp, websocketPath?:string = '/*', websocketOptions?: Object = { compression: 0, maxPayloadLength: 16 * 1024 * 1024, idleTimeout: 10 }) {
+  constructor(uwsServer:TemplatedApp, websocketPath?:string = '/*', websocketOptions?: Object = { compression: 0, maxPayloadLength: 128 * 1024 * 1024, idleTimeout: 10 }) {
     super();
+
     this.messageHashes = new LruCache({ max: 500 });
 
     // Primary data object, used by all peers and partially shared with subscribers
@@ -99,6 +102,9 @@ class Server extends EventEmitter {
     this.subscriptions = new DirectedGraphMap();
 
     this.id = randomInteger();
+
+    this.logger = makeLogger(`Braid Server ${this.id}`);
+
     this.isClosing = false;
 
     this.setCredentialsHandler(async (credentials: Object) => // eslint-disable-line no-unused-vars
@@ -195,28 +201,28 @@ class Server extends EventEmitter {
         ws.credentials.ip = requestIp(ws, req); // eslint-disable-line no-param-reassign
         this.sockets.set(socketId, ws);
         this.emit(OPEN, socketId);
-        logger.info(`${socketId}: Connected`);
+        this.logger.info(`Opened socket with ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId})`);
       },
       message: (ws, data, isBinary) => {
+        if (this.isClosing) {
+          return;
+        }
         const socketId = ws.id;
         if (!socketId) {
-          logger.error('Received message without socket ID');
+          this.logger.error('Received message without socket ID');
           return;
         }
         if (!isBinary) {
-          logger.error(`${socketId}: Sent non-binary message: ${data.toString()}`);
+          this.logger.error(`Received non-binary message from ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}): ${data.toString()}`);
           return;
         }
         const message = decode(data);
-        if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof PeerSubscriptionDump) {
+        if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse) {
           if (!this.peerSockets.hasSource(socketId)) {
-            logger.error(`${socketId}: Sent dump but is not a peer`);
+            this.logger.error(`Received dump from non-peer ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId})`);
             return;
           }
           this.handleMessage(message);
-        }
-        if (this.isClosing) {
-          return;
         }
         if (message instanceof Credentials) {
           this.handleCredentialsRequest(socketId, ws.credentials, message.value);
@@ -231,7 +237,7 @@ class Server extends EventEmitter {
       close: (ws, code, data) => { // eslint-disable-line no-unused-vars
         const socketId = ws.id;
         if (!socketId) {
-          logger.error('Received close without socket ID');
+          this.logger.error('Received close without socket ID');
           return;
         }
         this.removeSubscriptions(socketId);
@@ -241,7 +247,7 @@ class Server extends EventEmitter {
           this.prunePeers();
         }
         this.sockets.delete(socketId);
-        logger.info(`${socketId}: Closed with code ${code}`);
+        this.logger.info(`Closed socket with ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}), code ${code}`);
         delete ws.id; // eslint-disable-line no-param-reassign
         delete ws.credentials; // eslint-disable-line no-param-reassign
       },
@@ -257,25 +263,27 @@ class Server extends EventEmitter {
       throw new Error(`${this.id}: ${this.peerSockets.size} referenced peer sockets`);
     }
     if (this.peerConnections.size > 0) {
-      throw new Error(`${this.peerConnections.size} referenced peer connections`);
+      throw new Error(`${this.id}: ${this.peerConnections.size} referenced peer connections`);
     }
     if (this.peers.size > 0) {
+      console.log(this.id, [...this.peers]);
       throw new Error(`${this.id}: ${this.peers.size} referenced peers`);
     }
     if (this.providers.size > 0) {
-      throw new Error(`${this.providers.size} referenced providers`);
+      console.log(this.id, [...this.providers]);
+      throw new Error(`${this.id}: ${this.providers.size} referenced providers`);
     }
     if (this.providerRegexes.size > 0) {
-      throw new Error(`${this.providerRegexes.size} referenced provider matchers`);
+      throw new Error(`${this.id}: ${this.providerRegexes.size} referenced provider regexes`);
     }
     if (this.subscriptions.size > 0) {
-      throw new Error(`${this.subscriptions.size} referenced peer subscriptions`);
+      throw new Error(`${this.id}: ${this.subscriptions.size} referenced peer subscriptions`);
     }
     if (this.peerSubscriptions.size > 0) {
-      throw new Error(`${this.peerSubscriptions.size} referenced subscribers`);
+      throw new Error(`${this.id}: ${this.peerSubscriptions.size} referenced subscribers`);
     }
     if (this.activeProviders.size > 0) {
-      throw new Error(`${this.activeProviders.size} referenced activeProviders`);
+      throw new Error(`${this.id}: ${this.activeProviders.size} referenced activeProviders`);
     }
   }
 
@@ -339,14 +347,14 @@ class Server extends EventEmitter {
     const response = await this.credentialsHandler(credentials);
     const ws = this.sockets.get(socketId);
     if (!ws) {
-      logger.error(`Cannot respond to credentials request from socket ID ${socketId}, socket does not exist`);
+      this.logger.error(`Cannot respond to credentials request from socket ID ${socketId}, socket does not exist`);
       return;
     }
     if (response.success) {
-      logger.info(`${socketId}: Credentials accepted`);
+      this.logger.info(`Credentials from ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) accepted`);
       ws.credentials = credentials; // eslint-disable-line no-param-reassign
     } else {
-      logger.info(`${socketId}: Credentials denied`);
+      this.logger.info(`Credentials from ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) rejected`);
     }
     const unencoded = new CredentialsResponse({ success: response.success, code: response.code, message: response.message });
     ws.send(getArrayBuffer(encode(unencoded)), true, false);
@@ -354,23 +362,23 @@ class Server extends EventEmitter {
 
   async handlePeerRequest(socketId: number, credentials: Object, peerId:number) {
     if (this.peerConnections.has(peerId)) {
-      logger.error(`${socketId}: Connection to peer ${peerId} already exists`);
       const wsA = this.sockets.get(socketId);
       if (!wsA) {
-        logger.error(`Cannot respond to peer request from socket ID ${socketId}, socket does not exist`);
+        this.logger.error(`Cannot respond to peer request from socket ID ${socketId}, socket does not exist`);
         return;
       }
+      this.logger.error(`Peer request from ${wsA.credentials && wsA.credentials.ip ? wsA.credentials.ip : 'with unknown IP'} (${socketId}) rejected, connection to peer ${peerId} already exists`);
       const unencoded = new PeerResponse({ success: false, code: 400, message: `Connection to peer ${peerId} already exists` });
       wsA.send(getArrayBuffer(encode(unencoded)), true, false);
       return;
     }
     if (this.peerSockets.hasTarget(peerId)) {
-      logger.error(`${socketId}: Socket to peer ${peerId} already exists`);
       const wsA = this.sockets.get(socketId);
       if (!wsA) {
-        logger.error(`Cannot respond to peer request from socket ID ${socketId}, socket does not exist`);
+        this.logger.error(`Cannot respond to peer request from socket ID ${socketId}, socket does not exist`);
         return;
       }
+      this.logger.error(`Peer request from ${wsA.credentials && wsA.credentials.ip ? wsA.credentials.ip : 'with unknown IP'} (${socketId}) rejected, connection to peer ${peerId} already exists`);
       const unencoded = new PeerResponse({ success: false, code: 400, message: `Socket to peer ${peerId} already exists` });
       wsA.send(getArrayBuffer(encode(unencoded)), true, false);
       return;
@@ -378,7 +386,7 @@ class Server extends EventEmitter {
     const response = await this.peerRequestHandler(credentials);
     const ws = this.sockets.get(socketId);
     if (!ws) {
-      logger.error(`Cannot respond to peer request from socket ID ${socketId}, socket does not exist`);
+      this.logger.error(`Cannot respond to peer request from socket ID ${socketId}, socket does not exist`);
       return;
     }
     if (response.success) {
@@ -395,7 +403,7 @@ class Server extends EventEmitter {
     const response = await this.subscribeRequestHandler(key, credentials);
     const ws = this.sockets.get(socketId);
     if (!ws) {
-      logger.error(`Cannot respond to subscribe request from socket ID ${socketId}, socket does not exist`);
+      this.logger.error(`Cannot respond to subscribe request from socket ID ${socketId}, socket does not exist`);
       return;
     }
     if (response.success) {
@@ -405,30 +413,25 @@ class Server extends EventEmitter {
     ws.send(getArrayBuffer(encode(unencoded)), true, false);
   }
 
-  addPeer(socketId:number, peerId:number) {
-    logger.info(`Adding peer ${socketId}:${peerId}`);
+  async addPeer(socketId:number, peerId:number) {
     const ws = this.sockets.get(socketId);
     if (!ws) {
       throw new Error(`Can not add peer with socket ID ${socketId}, socket does not exist`);
     }
-    logger.info(`${socketId}: Peered ${this.id}:${peerId}`);
+    this.logger.info(`Adding peer ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) with ID ${peerId}`);
     this.peerSockets.addEdge(socketId, peerId);
-    if (this.data.size > 0) {
-      ws.send(getArrayBuffer(encode(new DataDump(this.data.dump(), [this.id]))), true, false);
-    }
-    if (this.providers.size > 0) {
-      ws.send(getArrayBuffer(encode(new ProviderDump(this.providers.dump(), [this.id]))), true, false);
-    }
-    if (this.activeProviders.size > 0) {
-      ws.send(getArrayBuffer(encode(new ActiveProviderDump(this.activeProviders.dump(), [this.id]))), true, false);
-    }
-    if (this.peers.size > 0) {
-      ws.send(getArrayBuffer(encode(new PeerDump(this.peers.dump(), [this.id]))), true, false);
-    }
     this.updatePeers();
+    this.syncPeerSocket(socketId, peerId);
   }
 
-  handleMessage(message:DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump) {
+  handleMessage(message:DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse) {
+    if (message instanceof PeerSync) {
+      this.handlePeerSync(message);
+      return;
+    } else if (message instanceof PeerSyncResponse) {
+      this.emit('peerSyncResponse', message.value);
+      return;
+    }
     const hash = hash32(message.queue);
     if (this.messageHashes.has(hash)) {
       return;
@@ -522,7 +525,7 @@ class Server extends EventEmitter {
       }
     }
     if (peerIdAndRegexStrings.length === 0) {
-      logger.error(`Unable to find provider for ${key}`);
+      this.logger.error(`Unable to find provider for "${key}"`);
       return;
     }
     peerIdAndRegexStrings.sort((x, y) => (x[0] === y[0] ? (x[1] > y[1] ? 1 : -1) : (x[0] > y[0] ? 1 : -1)));
@@ -544,7 +547,6 @@ class Server extends EventEmitter {
   }
 
   provide(regexString:string, callback: (key:string, active:boolean) => void) {
-    logger.info(`Providing ${regexString}`);
     const regexStrings = new Set(this.providers.get(this.id));
     regexStrings.add(regexString);
     this.providers.set(this.id, [...regexStrings]);
@@ -552,7 +554,6 @@ class Server extends EventEmitter {
   }
 
   unprovide(regexString:string) {
-    logger.info(`Unproviding ${regexString}`);
     const regexStrings = new Set(this.providers.get(this.id));
     regexStrings.delete(regexString);
     this.provideCallbacks.delete(regexString);
@@ -597,6 +598,9 @@ class Server extends EventEmitter {
     const disconnectedPeerIds = new Set();
     this.connectedPeers(this.id, connectedPeerIds);
     for (const peerId of this.peers.keys()) {
+      if (this.id === peerId) {
+        continue;
+      }
       if (!connectedPeerIds.has(peerId)) {
         disconnectedPeerIds.add(peerId);
       }
@@ -605,7 +609,6 @@ class Server extends EventEmitter {
   }
 
   disconnectFromPeer(peerId: number) {
-    logger.info(`Disconnecting from peer ${peerId}`);
     this.peers.delete(peerId);
     this.providers.delete(peerId);
     this.providerRegexes.delete(peerId);
@@ -623,7 +626,8 @@ class Server extends EventEmitter {
   }
 
   async close() {
-    logger.info('Closing');
+    this.logger.info('Closing');
+    this.isClosing = true;
     await this.closePeerConnections();
     for (const socket of this.sockets.values()) {
       socket.end(1000, 'Shutting down');
@@ -632,49 +636,148 @@ class Server extends EventEmitter {
     while (this.sockets.size > 0 && Date.now() < timeout) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
+    this.disconnectFromPeer(this.id);
     if (Date.now() > timeout) {
-      logger.warn('Closed after timeout');
+      this.logger.warn('Closed after timeout');
     } else {
-      logger.info('Closed');
+      this.logger.info('Closed');
     }
+    this.isClosing = false;
   }
 
   async connectToPeer(address:string, credentials?: Object) {
+    this.logger.info(`Connecting to peer ${address}`);
     const peerConnection = new PeerConnection(this.id, address, credentials);
-    const peerId = await peerConnection.open();
-    if (this.peerConnections.has(peerId)) {
-      await peerConnection.close();
-      logger.error(`Connection to peer ${peerId} already exists`);
-      throw new Error(`Connection to peer ${peerId} already exists`);
-    }
-    if (this.peerSockets.hasTarget(peerId)) {
-      await peerConnection.close();
-      logger.error(`Socket to peer ${peerId} already exists`);
-      throw new Error(`Socket to peer ${peerId} already exists`);
-    }
     peerConnection.on('close', () => {
+      this.logger.info(`Connection to ${address} with peer ID ${peerId} closed`);
       this.peerConnections.delete(peerId);
       this.updatePeers();
       this.prunePeers();
     });
+    const messageQueue = [];
+    const queueMessages = (message:any) => {
+      messageQueue.push(message);
+    };
+    peerConnection.on('message', queueMessages);
+    const peerId = await peerConnection.open();
+    if (this.peerConnections.has(peerId)) {
+      await peerConnection.close();
+      this.logger.error(`Closing connection to ${address}, connection to peer ${peerId} already exists`);
+      throw new Error(`Connection to peer ${peerId} already exists`);
+    }
+    if (this.peerSockets.hasTarget(peerId)) {
+      await peerConnection.close();
+      this.logger.info(`Closing connection to ${address}, socket with peer ${peerId} already exists`);
+      throw new Error(`Socket to peer ${peerId} already exists`);
+    }
+    this.peerConnections.set(peerId, peerConnection);
+    peerConnection.removeListener('message', queueMessages);
     peerConnection.on('message', (message:any) => {
       this.handleMessage(message);
     });
-    this.peerConnections.set(peerId, peerConnection);
+    for (const message of messageQueue) {
+      this.handleMessage(message);
+    }
     this.updatePeers();
-    if (peerConnection.ws.readyState === 1) {
-      if (this.data.size > 0) {
-        peerConnection.ws.send(encode(new DataDump(this.data.dump(), [this.id])));
+    this.logger.info(`Connected to ${address} with peer ID ${peerId}`);
+    await this.syncPeerConnection(peerId);
+  }
+
+  handlePeerSync(peerSync: PeerSync) {
+    this.data.process(peerSync.data.queue);
+    this.peers.process(peerSync.peers.queue);
+    this.providers.process(peerSync.providers.queue);
+    this.activeProviders.process(peerSync.activeProviders.queue);
+    this.peerSubscriptions.process(peerSync.peerSubscriptions.queue);
+    const peerConnection = this.peerConnections.get(peerSync.id);
+    if (peerConnection) {
+      peerConnection.ws.send(encode(new PeerSyncResponse(this.id)));
+      return;
+    }
+    for (const socketId of this.peerSockets.getSources(peerSync.id)) {
+      const ws = this.sockets.get(socketId);
+      if (ws) {
+        ws.send(getArrayBuffer(encode(new PeerSyncResponse(this.id))), true, false);
+        return;
       }
-      if (this.providers.size > 0) {
-        peerConnection.ws.send(encode(new ProviderDump(this.providers.dump(), [this.id])));
-      }
-      if (this.activeProviders.size > 0) {
-        peerConnection.ws.send(encode(new ActiveProviderDump(this.activeProviders.dump(), [this.id])));
-      }
-      if (this.peers.size > 0) {
-        peerConnection.ws.send(encode(new PeerDump(this.peers.dump(), [this.id])));
-      }
+    }
+    this.logger.error(`Unable to handle sync from peer ID ${peerSync.id}, socket or connection does not exist`);
+  }
+
+  async syncPeerConnection(peerId: number) {
+    const peerConnection = this.peerConnections.get(peerId);
+    if (!peerConnection) {
+      this.logger.error(`Unable to sync peer ${peerId}, connection does not exist`);
+      return;
+    }
+    if (peerConnection.ws.readyState !== 1) {
+      this.logger.error(`Unable to sync peer ${peerId}, readystate ${peerConnection.ws.readyState}`);
+      return;
+    }
+    const peerSync = new PeerSync(
+      this.id,
+      new DataDump(this.data.dump()),
+      new PeerDump(this.peers.dump()),
+      new ProviderDump(this.providers.dump()),
+      new ActiveProviderDump(this.activeProviders.dump()),
+      new PeerSubscriptionDump(this.peerSubscriptions.dump()),
+    );
+    const peerSyncResponsePromise = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        reject(new Error(`Timeout waiting for sync response from peer ${peerId}`));
+      }, 5000);
+      const handlePeerSyncReponse = (pId:number) => {
+        if (pId !== peerId) {
+          return;
+        }
+        clearTimeout(timeout);
+        this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        resolve();
+      };
+      this.on('peerSyncResponse', handlePeerSyncReponse);
+    });
+    peerConnection.ws.send(encode(peerSync));
+    try {
+      await peerSyncResponsePromise;
+    } catch (error) {
+      this.logger.error(error.message);
+    }
+  }
+
+  async syncPeerSocket(socketId: number, peerId: number) {
+    const ws = this.sockets.get(socketId);
+    if (!ws) {
+      throw new Error(`Can not publish data to peer ${peerId} (${socketId}), socket does not exist`);
+    }
+    const peerSync = new PeerSync(
+      this.id,
+      new DataDump(this.data.dump()),
+      new PeerDump(this.peers.dump()),
+      new ProviderDump(this.providers.dump()),
+      new ActiveProviderDump(this.activeProviders.dump()),
+      new PeerSubscriptionDump(this.peerSubscriptions.dump()),
+    );
+    const peerSyncResponsePromise = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        reject(new Error(`Timeout waiting for sync response from peer ${peerId}`));
+      }, 5000);
+      const handlePeerSyncReponse = (pId:number) => {
+        if (pId !== peerId) {
+          return;
+        }
+        clearTimeout(timeout);
+        this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        resolve();
+      };
+      this.on('peerSyncResponse', handlePeerSyncReponse);
+    });
+    ws.send(getArrayBuffer(encode(peerSync)), true, false);
+    try {
+      await peerSyncResponsePromise;
+    } catch (error) {
+      this.logger.error(error.message);
     }
   }
 
@@ -696,6 +799,12 @@ class Server extends EventEmitter {
   peerRequestHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   credentialsHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   subscribeRequestHandler: (key:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
+  logger: {
+    debug: (string) => void,
+    info: (string) => void,
+    warn: (string) => void,
+    error: (string) => void
+  };
 }
 
 module.exports = Server;

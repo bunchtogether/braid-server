@@ -1,7 +1,6 @@
 // @flow
 
 const uuid = require('uuid');
-const { shuffle } = require('lodash');
 const Client = require('@bunchtogether/braid-client');
 const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');
@@ -15,7 +14,8 @@ jest.setTimeout(60000);
 describe(`${count} peers in a ring with a subscriber client`, () => {
   let client;
   const peers = [];
-  const getRandomDatas = (c:number) => shuffle(peers).slice(0, c).map((peer) => peer.data);
+  const keys = [];
+
   beforeAll(async () => {
     for (let i = 0; i < count; i += 1) {
       const port = startPort + i;
@@ -37,20 +37,27 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
     await Promise.all(peerPromises);
     client = new Client(`ws://localhost:${startPort + Math.floor(Math.random() * count)}`, {});
     await client.open();
+    for (const { server } of peers) {
+      server.provide('.*', (key) => {
+        server.data.set(key, key);
+      });
+    }
   });
 
-  test('Should subscribe to values', async () => {
-    const [data] = getRandomDatas(1);
-    const key = uuid.v4();
-    const value = uuid.v4();
-    await client.subscribe(key, () => {});
-    data.set(key, value);
-    await expect(client.data).toReceiveProperty(key, value);
+  test('Should provide keys', async () => {
+    for (let i = 0; i < 100; i += 1) {
+      const key = uuid.v4();
+      const handler = () => {};
+      await client.subscribe(key, handler);
+      keys.push(key);
+      await expect(client.data).toReceiveProperty(key, key);
+      await client.unsubscribe(key, handler);
+    }
   });
 
   test('Should close gracefully', async () => {
     await client.close();
-    await Promise.all(peers.map(({ server }) => server.closePeerConnections()));
+    await Promise.all(peers.map(({ server }) => server.close()));
     await Promise.all(peers.map(({ stop }) => stop()));
     peers.map(({ server }) => server.throwOnLeakedReferences());
   });
