@@ -110,6 +110,11 @@ class Server extends EventEmitter {
     //   Target: Key
     this.subscriptions = new DirectedGraphMap();
 
+    // Active credential handler promises
+    //   Key: Socket ID
+    //   Value: Promise<void>
+    this.credentialsHandlerPromises = new Map();
+
     this.id = randomInteger();
 
     this.logger = makeLogger(`Braid Server ${this.id}`);
@@ -385,14 +390,32 @@ class Server extends EventEmitter {
 
   /**
    * Top level handler for incoming credentials messages. Uses the default/custom credentialsHandler method to validate.
-   * @param {string} socketId Socket ID from which the credentials were received
+   * @param {number} socketId Socket ID from which the credentials were received
    * @param {Object} existingCredentials Existing credentials object
    * @param {Object} clientCredentials Credentials object provided by the client
    * @return {void}
    */
   async handleCredentialsRequest(socketId: number, existingCredentials: Object, clientCredentials: Object) {
     const credentials = Object.assign({}, existingCredentials, { client: clientCredentials });
-    const response = await this.credentialsHandler(credentials);
+    await this.credentialsHandlerPromises.get(socketId);
+    let response;
+    try {
+      const credentialsHandlerPromise = this.credentialsHandler(credentials);
+      this.credentialsHandlerPromises.set(socketId, credentialsHandlerPromise.then(() => {
+        this.credentialsHandlerPromises.delete(socketId);
+      }).catch(() => {
+        this.credentialsHandlerPromises.delete(socketId);
+      }));
+      response = await credentialsHandlerPromise;
+    } catch (error) {
+      if (error.stack) {
+        this.logger.error('Credentials request handler error:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Credentials request handler error: ${error.message}`);
+      }
+      response = { success: false, code: 500, message: 'Credentials request handler error' };
+    }
     const ws = this.sockets.get(socketId);
     if (!ws) {
       this.logger.error(`Cannot respond to credentials request from socket ID ${socketId}, socket does not exist`);
@@ -410,7 +433,7 @@ class Server extends EventEmitter {
 
   /**
    * Top level handler for incoming peer request messages. Uses the default/custom peerRequestHandler method to validate.
-   * @param {string} socketId Socket ID from which the request was received
+   * @param {number} socketId Socket ID from which the request was received
    * @param {Object} credentials Credentials object
    * @param {Object} peerId Peer ID provided by the client
    * @return {void}
@@ -438,7 +461,20 @@ class Server extends EventEmitter {
       wsA.send(getArrayBuffer(encode(unencoded)), true, false);
       return;
     }
-    const response = await this.peerRequestHandler(credentials);
+    // Wait for any credential handler operations to complete
+    await this.credentialsHandlerPromises.get(socketId);
+    let response;
+    try {
+      response = await this.peerRequestHandler(credentials);
+    } catch (error) {
+      if (error.stack) {
+        this.logger.error('Peer request handler error:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Peer request handler error: ${error.message}`);
+      }
+      response = { success: false, code: 500, message: 'Peer request handler error' };
+    }
     const ws = this.sockets.get(socketId);
     if (!ws) {
       this.logger.error(`Cannot respond to peer request from socket ID ${socketId}, socket does not exist`);
@@ -456,13 +492,26 @@ class Server extends EventEmitter {
 
   /**
    * Top level handler for incoming subscribe request messages. Uses the default/custom subscribeRequestHandler method to validate.
-   * @param {string} socketId Socket ID from which the request was received
+   * @param {number} socketId Socket ID from which the request was received
    * @param {Object} credentials Credentials object
    * @param {string} key Key the subscriber is requesting updates on
    * @return {void}
    */
   async handleSubscribeRequest(socketId:number, credentials:Object, key:string) {
-    const response = await this.subscribeRequestHandler(key, credentials);
+    // Wait for any credential handler operations to complete
+    await this.credentialsHandlerPromises.get(socketId);
+    let response;
+    try {
+      response = await this.subscribeRequestHandler(key, credentials);
+    } catch (error) {
+      if (error.stack) {
+        this.logger.error('Subscribe request handler error:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Subscribe request handler error: ${error.message}`);
+      }
+      response = { success: false, code: 500, message: 'Subscribe request handler error' };
+    }
     const ws = this.sockets.get(socketId);
     if (!ws) {
       this.logger.error(`Cannot respond to subscribe request from socket ID ${socketId}, socket does not exist`);
@@ -562,7 +611,7 @@ class Server extends EventEmitter {
 
   /**
    * Add a subscription to a socket.
-   * @param {string} socketId Socket ID of the subscriber
+   * @param {number} socketId Socket ID of the subscriber
    * @param {string} key Key to provide the subscriber with updates
    * @return {void}
    */
@@ -580,7 +629,7 @@ class Server extends EventEmitter {
 
   /**
    * Remove a subscription from a socket.
-   * @param {string} socketId Socket ID of the subscriber
+   * @param {number} socketId Socket ID of the subscriber
    * @param {string} key Key on which the subscriber should stop receiving updates
    * @return {void}
    */
@@ -593,7 +642,7 @@ class Server extends EventEmitter {
 
   /**
    * Remove all subscriptions from a socket, for example after the socket disconnects
-   * @param {string} socketId Socket ID of the subscriber
+   * @param {number} socketId Socket ID of the subscriber
    * @param {string} key Key on which the subscriber should stop receiving updates
    * @return {void}
    */
@@ -724,7 +773,7 @@ class Server extends EventEmitter {
 
   /**
    * Removes a peer, reassigning any active providers.
-   * @param {string} peerId Peer ID of the peer
+   * @param {number} peerId Peer ID of the peer
    * @return {void}
    */
   removePeer(peerId: number) {
@@ -751,7 +800,7 @@ class Server extends EventEmitter {
    * @param {number} peerId Peer ID of the peer
    * @return {void}
    */
-  async addPeer(socketId:number, peerId:number) {
+  addPeer(socketId:number, peerId:number) {
     const ws = this.sockets.get(socketId);
     if (!ws) {
       throw new Error(`Can not add peer with socket ID ${socketId}, socket does not exist`);
@@ -899,7 +948,12 @@ class Server extends EventEmitter {
     try {
       await peerSyncResponsePromise;
     } catch (error) {
-      this.logger.error(error.message);
+      if (error.stack) {
+        this.logger.error('Error in peer connection sync response:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Error in peer connection sync response: ${error.message}`);
+      }
     }
   }
 
@@ -941,7 +995,12 @@ class Server extends EventEmitter {
     try {
       await peerSyncResponsePromise;
     } catch (error) {
-      this.logger.error(error.message);
+      if (error.stack) {
+        this.logger.error('Error in peer socket sync response:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Error in peer socket sync response: ${error.message}`);
+      }
     }
   }
 
@@ -961,6 +1020,7 @@ class Server extends EventEmitter {
   peerSubscriptions:ObservedRemoveMap<string>;
   peerSubscriptionMap:Map<number, Set<number>>;
   providerRegexes: Map<number, Array<[string, RegExp]>>;
+  credentialsHandlerPromises: Map<number, Promise<void>>;
   peerRequestHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   credentialsHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   subscribeRequestHandler: (key:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
