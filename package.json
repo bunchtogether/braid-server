@@ -15,12 +15,14 @@
     "coverage": "codecov",
     "start-pre-commit": "git stash -q --keep-index",
     "end-pre-commit": "git add -u && git stash pop -q",
-    "benchmark": "NODE_ENV=production flow-node --prof tests/benchmark.js"
+    "documentation": "documentation readme src/index.js --section='API'",
+    "benchmark": "NODE_ENV=production flow-node --prof tests/benchmark.js && node --prof-process $(ls -tr isolate-* | tail -n1) && rm -rf isolate-*"
   },
   "pre-commit": [
     "lint",
     "start-pre-commit",
     "build",
+    "documentation",
     "end-pre-commit"
   ],
   "jest": {

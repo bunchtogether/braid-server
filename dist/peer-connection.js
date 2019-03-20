@@ -1,4 +1,4 @@
-// @flow
+//      
 
 const { EventEmitter } = require('events');
 const WS = require('ws');
@@ -11,11 +11,11 @@ const {
   PeerRequest,
   PeerResponse,
   Unpeer,
-} = require('../messagepack');
+} = require('@bunchtogether/braid-messagepack');
 
 class PeerError extends Error {
-  code: number;
-  constructor(message:string, code:number) {
+               
+  constructor(message       , code       ) {
     super(message);
     this.name = 'PeerError';
     this.code = code;
@@ -23,8 +23,8 @@ class PeerError extends Error {
 }
 
 class CredentialsError extends Error {
-  code: number;
-  constructor(message:string, code:number) {
+               
+  constructor(message       , code       ) {
     super(message);
     this.name = 'CredentialsError';
     this.code = code;
@@ -32,7 +32,7 @@ class CredentialsError extends Error {
 }
 
 class PeerConnection extends EventEmitter {
-  constructor(id: number, address:string, credentials?:Object) {
+  constructor(id        , address       , credentials        ) {
     super();
     this.id = id;
     this.address = address;
@@ -48,7 +48,7 @@ class PeerConnection extends EventEmitter {
       this.ws = ws;
     });
 
-    ws.on('close', (code: number, reason:string) => {
+    ws.on('close', (code        , reason       ) => {
       delete this.ws;
       this.emit('close', code, reason);
     });
@@ -69,7 +69,7 @@ class PeerConnection extends EventEmitter {
         this.removeListener('error', onError);
         resolve();
       };
-      const onError = (event: Event) => {
+      const onError = (event       ) => {
         this.removeListener('open', onOpen);
         reject(event);
       };
@@ -83,7 +83,7 @@ class PeerConnection extends EventEmitter {
     return peerId;
   }
 
-  async close(code?: number, reason?: string) {
+  async close(code         , reason         ) {
     if (!this.ws) {
       return;
     }
@@ -92,7 +92,7 @@ class PeerConnection extends EventEmitter {
         this.removeListener('error', onError);
         resolve();
       };
-      const onError = (event: Event) => {
+      const onError = (event       ) => {
         this.removeListener('close', onClose);
         reject(event);
       };
@@ -102,7 +102,7 @@ class PeerConnection extends EventEmitter {
     });
   }
 
-  async sendCredentials(credentials: Object) {
+  async sendCredentials(credentials        ) {
     if (!this.ws) {
       throw new Error('Unable to send credentials, not open');
     }
@@ -158,11 +158,11 @@ class PeerConnection extends EventEmitter {
     this.ws.send(encode(new Unpeer()));
   }
 
-  id:number;
-  address:string;
-  credentials: Object;
-  ws: WS;
-  timeoutDuration: number;
+            
+                 
+                      
+         
+                          
 }
 
 module.exports = PeerConnection;

@@ -8,30 +8,30 @@ interface us_listen_socket {
 }
 
 /** Recognized string types, things C++ can read and understand as strings */
-type RecognizedString = string | ArrayBuffer | Uint8Array | Int8Array | Uint16Array | Int16Array | Uint32Array | Int32Array | Float32Array | Float64Array;
+type UWSRecognizedString = string | ArrayBuffer | Uint8Array | Int8Array | Uint16Array | Int16Array | Uint32Array | Int32Array | Float32Array | Float64Array;
 
 /** A UWSWebSocket connection that is valid from open to close event */
 interface UWSWebSocket {
     /** Sends a message. Make sure to check getBufferedAmount() before sending. Returns true for success, false for built up backpressure that will drain when time is given. */
-    send(message: RecognizedString, isBinary?: boolean, compress?: boolean) : boolean;
+    send(message: UWSRecognizedString, isBinary?: boolean, compress?: boolean) : boolean;
 
     /** Returns the bytes buffered in backpressure. */
     getBufferedAmount() : number;
 
     /** Gradefully closes this UWSWebSocket. Immediately calls close handler. */
-    end(code: number, shortMessage: RecognizedString) : UWSWebSocket;
+    end(code: number, shortMessage: UWSRecognizedString) : UWSWebSocket;
 
     /** Forefully closes this UWSWebSocket. Immediately calls close handler. */
     close() : UWSWebSocket;
 
     /** Subscribe to a topic in MQTT syntax */
-    subscribe(topic: RecognizedString) : UWSWebSocket;
+    subscribe(topic: UWSRecognizedString) : UWSWebSocket;
 
     /** Publish a message to a topic in MQTT syntax */
-    publish(topic: RecognizedString, message: RecognizedString) : UWSWebSocket;
+    publish(topic: UWSRecognizedString, message: UWSRecognizedString) : UWSWebSocket;
 
     /** Unsubscribe from topic (not implemented yet) */
-    unsubscribe(topic: RecognizedString) : UWSWebSocket;
+    unsubscribe(topic: UWSRecognizedString) : UWSWebSocket;
 
     /** Returns the remote IP address */
     getRemoteAddress() : ArrayBuffer;
@@ -44,15 +44,15 @@ interface UWSWebSocket {
 /** An HttpResponse is valid until either onAborted callback or any of the .end/.tryEnd calls succeed. You may attach user data to this object. */
 interface HttpResponse {
     /** Writes the HTTP status message such as "200 OK". */
-    writeStatus(status: RecognizedString) : HttpResponse;
+    writeStatus(status: UWSRecognizedString) : HttpResponse;
     /** Writes key and value to HTTP response. */
-    writeHeader(key: RecognizedString, value: RecognizedString) : HttpResponse;
+    writeHeader(key: UWSRecognizedString, value: UWSRecognizedString) : HttpResponse;
     /** Enters or continues chunked encoding mode. Writes part of the response. End with zero length write. */
-    write(chunk: RecognizedString) : HttpResponse;
+    write(chunk: UWSRecognizedString) : HttpResponse;
     /** Ends this response by copying the contents of body. */
-    end(body: RecognizedString) : HttpResponse;
+    end(body: UWSRecognizedString) : HttpResponse;
     /** Ends this response, or tries to, by streaming appropriately sized chunks of body. Use in conjunction with onWritable. Returns tuple [ok, hasResponded].*/
-    tryEnd(fullBodyOrChunk: RecognizedString, totalSize: number) : [boolean, boolean];
+    tryEnd(fullBodyOrChunk: UWSRecognizedString, totalSize: number) : [boolean, boolean];
 
     /** Immediately force closes the connection. */
     close() : HttpResponse;
@@ -85,7 +85,7 @@ interface HttpResponse {
 /** An HttpRequest is stack allocated and only accessible during the callback invocation. */
 interface HttpRequest {
     /** Returns the lowercased header value or empty string. */
-    getHeader(lowerCaseKey: RecognizedString) : string;
+    getHeader(lowerCaseKey: UWSRecognizedString) : string;
     /** Returns the parsed parameter at index. Corresponds to route. */
     getParameter(index: number) : string;
     /** Returns the URL including initial /slash */
@@ -116,40 +116,40 @@ interface UWSWebSocketBehavior {
 
 /** Options used when constructing an app. */
 interface AppOptions {
-    key_file_name?: RecognizedString;
-    cert_file_name?: RecognizedString;
-    passphrase?: RecognizedString;
-    dh_params_file_name?: RecognizedString;
+    key_file_name?: UWSRecognizedString;
+    cert_file_name?: UWSRecognizedString;
+    passphrase?: UWSRecognizedString;
+    dh_params_file_name?: UWSRecognizedString;
 }
 
-/** TemplatedApp is either an SSL or non-SSL app. */
-interface TemplatedApp {
+/** UWSTemplatedApp is either an SSL or non-SSL app. */
+interface UWSTemplatedApp {
     /** Listens to hostname & port. Callback hands either false or a listen socket. */
-    listen(host: RecognizedString, port: number, cb: (listenSocket: us_listen_socket) => void): TemplatedApp;
+    listen(host: UWSRecognizedString, port: number, cb: (listenSocket: us_listen_socket) => void): UWSTemplatedApp;
     /** Listens to port. Callback hands either false or a listen socket. */
-    listen(port: number, cb: (listenSocket: any) => void): TemplatedApp;
+    listen(port: number, cb: (listenSocket: any) => void): UWSTemplatedApp;
     /** Registers an HTTP GET handler matching specified URL pattern. */
-    get(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    get(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers an HTTP POST handler matching specified URL pattern. */
-    post(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    post(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers an HTTP OPTIONS handler matching specified URL pattern. */
-    options(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    options(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers an HTTP DELETE handler matching specified URL pattern. */
-    del(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    del(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers an HTTP PATCH handler matching specified URL pattern. */
-    patch(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    patch(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers an HTTP PUT handler matching specified URL pattern. */
-    put(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    put(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers an HTTP HEAD handler matching specified URL pattern. */
-    head(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    head(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers an HTTP CONNECT handler matching specified URL pattern. */
-    connect(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    connect(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers an HTTP TRACE handler matching specified URL pattern. */
-    trace(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    trace(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers an HTTP handler matching specified URL pattern on any HTTP method. */
-    any(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : TemplatedApp;
+    any(pattern: UWSRecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void) : UWSTemplatedApp;
     /** Registers a handler matching specified URL pattern where UWSWebSocket upgrade requests are caught. */
-    ws(pattern: RecognizedString, behavior: UWSWebSocketBehavior) : TemplatedApp;
+    ws(pattern: UWSRecognizedString, behavior: UWSWebSocketBehavior) : UWSTemplatedApp;
 
     forcefully_free(): void;
 }
@@ -160,8 +160,8 @@ type CompressOption = 0|1|2;
 
 
 declare module 'uWebSockets.js' {
-  declare export function App(options: AppOptions): TemplatedApp;
-  declare export function SSLApp(options: AppOptions): TemplatedApp; 
+  declare export function App(options: AppOptions): UWSTemplatedApp;
+  declare export function SSLApp(options: AppOptions): UWSTemplatedApp; 
   declare export function us_listen_socket_close(listenSocket: us_listen_socket): void;
   declare type CompressOptions = {
     /** No compression (always a good idea) */

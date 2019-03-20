@@ -33,7 +33,6 @@ const runBraid = async () => {
   const dataA = peers[0].data;
   const dataB = peers[Math.floor(peers.length / 2)].data;
   const key = uuid.v4();
-  // let activeKeyB = uuid.v4();
   let activeValueA = { value: uuid.v4() };
   let activeValueB = { value: uuid.v4() };
   let responseCount = 0;
@@ -83,8 +82,13 @@ const runDeepstream = async () => {
   });
   let clientA;
   let clientB;
+  const clientOptions = {
+    maxMessagesPerPacket: 1000,
+    timeBetweenSendingQueuedPackages: 0,
+    recordDeepCopy: false,
+  };
   await new Promise((resolve, reject) => {
-    clientA = deepstream('ws://127.0.0.1:5000').login();
+    clientA = deepstream('ws://127.0.0.1:5000', clientOptions).login();
     clientA.on('connectionStateChanged', (connectionState) => {
       if (connectionState === deepstream.CONSTANTS.CONNECTION_STATE.OPEN) {
         clientA.off('connectionStateChanged');
@@ -95,7 +99,7 @@ const runDeepstream = async () => {
     });
   });
   await new Promise((resolve, reject) => {
-    clientB = deepstream('ws://127.0.0.1:5000').login();
+    clientB = deepstream('ws://127.0.0.1:5000', clientOptions).login();
     clientB.on('connectionStateChanged', (connectionState) => {
       if (connectionState === deepstream.CONSTANTS.CONNECTION_STATE.OPEN) {
         clientB.off('connectionStateChanged');
