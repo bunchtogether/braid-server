@@ -777,6 +777,7 @@ class Server extends EventEmitter {
    * @return {void}
    */
   removePeer(peerId: number) {
+    this.logger.info(`${this.id}: Removing peer ${peerId}`);
     this.peers.delete(peerId);
     this.providers.delete(peerId);
     this.providerRegexes.delete(peerId);
@@ -785,7 +786,7 @@ class Server extends EventEmitter {
         this.peerSubscriptions.delete([pId, key]);
       }
     }
-    for (const [key, pId] of this.activeProviders) {
+    for (const [key, [pId]] of this.activeProviders) {
       if (pId === peerId) {
         this.activeProviders.delete(key);
         this.assignProvider(key);

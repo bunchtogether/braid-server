@@ -23,7 +23,7 @@ describe('Connection', () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     server = new Server(ws[0]);
     stopWebsocketServer = ws[1];
-    client = new Client(`ws://localhost:${port}`);
+    client = new Client();
   });
 
   afterAll(async () => {
@@ -38,7 +38,7 @@ describe('Connection', () => {
       server.once(OPEN, resolve);
       server.once(ERROR, reject);
     });
-    await client.open();
+    await client.open(`ws://localhost:${port}`);
     await openPromise;
   });
 

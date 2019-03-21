@@ -8,7 +8,7 @@ const startWebsocketServer = require('./lib/ws-server');
 require('./lib/map-utils');
 
 const startPort = 20000 + Math.round(Math.random() * 10000);
-const count = 100;
+const count = 10;
 
 jest.setTimeout(20000);
 
@@ -31,13 +31,14 @@ describe(`${count} peers in a ring with a provider`, () => {
       });
     }
     const peerPromises = [];
-    peerPromises.push(peers[0].server.connectToPeer(`ws://localhost:${startPort + count - 1}`, {}));
-    for (let i = 1; i < count; i += 1) {
-      peerPromises.push(peers[i].server.connectToPeer(`ws://localhost:${peers[i].port - 1}`, {}));
+    for (let i = 0; i < count; i += 1) {
+      for (let j = i + 1; j < count; j += 1) {
+        peerPromises.push(peers[i].server.connectToPeer(`ws://localhost:${peers[j].port}`, {}));
+      }
     }
     await Promise.all(peerPromises);
-    client = new Client(`ws://localhost:${startPort + Math.floor(Math.random() * count)}`, {});
-    await client.open();
+    client = new Client();
+    await client.open(`ws://localhost:${startPort + Math.floor(Math.random() * count)}`, {});
   });
 
   test('Should provide values', async () => {
@@ -73,6 +74,81 @@ describe(`${count} peers in a ring with a provider`, () => {
     await provideStartPromise;
     await expect(client.data).toReceiveProperty(key, value);
     serverA.unprovide(key);
+  });
+
+  test('Should automatically update after a provider closes', async () => {
+    const key = uuid.v4();
+    const valueA = uuid.v4();
+    const valueB = uuid.v4();
+    const [serverA, serverB] = getRandomServers(2);
+    const providePromiseA = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout when waiting for provide'));
+      }, 10000);
+      const handler = (k, active) => {
+        clearTimeout(timeout);
+        if (k === key && active) {
+          serverA.data.set(key, valueA);
+          resolve();
+        } else {
+          reject(`Unexpected provide state for key: ${key}, active: ${active ? 'TRUE' : 'FALSE'}`);
+        }
+      };
+      serverA.provide('.*', handler);
+    });
+    for (const { server } of peers) {
+      await expect(server.providers).toReceiveProperty(serverA.id, ['.*']);
+    }
+    const callbackPromiseA = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout when waiting for subscribe'));
+      }, 10000);
+      const handler = (value) => {
+        if (value === valueA) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      };
+      client.subscribe(key, handler);
+    });
+    await providePromiseA;
+    await callbackPromiseA;
+    for (const { server } of peers) {
+      await expect(server.activeProviders).toReceiveProperty(key, [serverA.id, '.*']);
+    }
+    const callbackPromiseB = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout when waiting for subscribe'));
+      }, 10000);
+      const handler = (value) => {
+        if (value === valueB) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      };
+      client.subscribe(key, handler);
+    });
+    const providePromiseB = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout when waiting for provide'));
+      }, 10000);
+      const handler = (k, active) => {
+        clearTimeout(timeout);
+        if (k === key && active) {
+          serverB.data.set(key, valueB);
+          resolve();
+        } else {
+          reject(`Unexpected provide state for key: ${key}, active: ${active ? 'TRUE' : 'FALSE'}`);
+        }
+      };
+      serverB.provide('.*', handler);
+    });
+    for (const { server } of peers) {
+      await expect(server.providers).toReceiveProperty(serverB.id, ['.*']);
+    }
+    await serverA.close();
+    await providePromiseB;
+    await callbackPromiseB;
   });
 
   test('Should close gracefully', async () => {

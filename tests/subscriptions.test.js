@@ -2,6 +2,7 @@
 
 const uuid = require('uuid');
 const Client = require('@bunchtogether/braid-client');
+const { shuffle } = require('lodash');
 const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');
 require('./lib/map-utils');
@@ -14,8 +15,7 @@ jest.setTimeout(60000);
 describe(`${count} peers in a ring with a subscriber client`, () => {
   let client;
   const peers = [];
-  const keys = [];
-
+  const getRandomServers = (c:number) => shuffle(peers).slice(0, c).map((peer) => peer.server);
   beforeAll(async () => {
     for (let i = 0; i < count; i += 1) {
       const port = startPort + i;
@@ -35,23 +35,57 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
       peerPromises.push(peers[i].server.connectToPeer(`ws://localhost:${peers[i].port - 1}`, {}));
     }
     await Promise.all(peerPromises);
-    client = new Client(`ws://localhost:${startPort + Math.floor(Math.random() * count)}`, {});
-    await client.open();
-    for (const { server } of peers) {
-      server.provide('.*', (key) => {
-        server.data.set(key, key);
-      });
-    }
+    client = new Client();
+    await client.open(`ws://localhost:${startPort + Math.floor(Math.random() * count)}`, {});
   });
 
   test('Should provide keys', async () => {
-    for (let i = 0; i < 100; i += 1) {
+    for (let i = 0; i < 10; i += 1) {
+      const [serverA] = getRandomServers(1);
+      const providePromise = new Promise((resolve, reject) => { // eslint-disable-line no-loop-func
+        let stage = 1;
+        const timeout = setTimeout(() => {
+          serverA.unprovide('.*', provideHandler);
+          reject(new Error('Timeout when waiting for key'));
+        }, 1000);
+        const provideHandler = (key, active) => {
+          if (active && stage === 1) {
+            serverA.data.set(key, key);
+            stage = 2;
+          } else if (!active && stage === 2) {
+            stage = 3;
+            serverA.unprovide('.*', provideHandler);
+            clearTimeout(timeout);
+            resolve();
+          } else {
+            clearTimeout(timeout);
+            reject(`Unknown provide state for key: ${key}, active: ${active ? 'TRUE' : 'FALSE'}, stage: ${stage}`);
+          }
+        };
+        serverA.provide('.*', provideHandler);
+      });
+      for (const { server } of peers) {
+        await expect(server.providers).toReceiveProperty(serverA.id, ['.*']);
+      }
       const key = uuid.v4();
-      const handler = () => {};
-      await client.subscribe(key, handler);
-      keys.push(key);
-      await expect(client.data).toReceiveProperty(key, key);
-      await client.unsubscribe(key, handler);
+      await new Promise((resolve, reject) => { // eslint-disable-line no-loop-func
+        const timeout = setTimeout(() => {
+          client.unsubscribe(key, handler);
+          reject(new Error('Timeout when waiting for key'));
+        }, 1000);
+        const handler = (value:string) => {
+          if (key === value) {
+            client.unsubscribe(key, handler);
+            clearTimeout(timeout);
+            resolve();
+          }
+        };
+        client.subscribe(key, handler);
+      });
+      await providePromise;
+      for (const { server } of peers) {
+        await expect(server.providers).toReceiveProperty(serverA.id, undefined);
+      }
     }
   });
 
