@@ -46,3 +46,4 @@ flow
 **/vendor
 README.md
 tests/benchmark.js
+src/uWebSockets.js

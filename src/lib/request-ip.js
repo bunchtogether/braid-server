@@ -1,5 +1,7 @@
 // @flow
 
+import type { UWSWebSocket, UWSHttpRequest } from '../uWebSockets';
+
 // Based on https://raw.githubusercontent.com/pbojinov/request-ip/master/src/index.js
 
 const { Address4, Address6 } = require('ip-address');
@@ -19,7 +21,7 @@ const correctForm = (s?:string) => {
   return null;
 };
 
-module.exports = (ws: UWSWebSocket, req:HttpRequest) => {
+module.exports = (ws: UWSWebSocket, req:UWSHttpRequest) => {
   let ipString;
 
   // Standard headers used by Amazon EC2, Heroku, and others.

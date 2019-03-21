@@ -1,5 +1,7 @@
 // @flow
 
+import type { UWSTemplatedApp, UWSWebSocket } from './uWebSockets';
+
 const crypto = require('crypto');
 const farmhash = require('farmhash');
 const { hash32 } = require('@bunchtogether/hash-object');
@@ -685,7 +687,7 @@ class Server extends EventEmitter {
    * @param {(key:string, active:boolean) => void} callback Callback function, called when a provider should start or stop providing values
    * @return {void}
    */
-  provide(regexString:string, callback: (key:string, active:boolean) => void) {
+  provide(regexString:string, callback: (key:string, active:boolean) => void|Promise<void>) {
     const regexStrings = new Set(this.providers.get(this.id));
     regexStrings.add(regexString);
     this.providers.set(this.id, [...regexStrings]);
@@ -1016,9 +1018,9 @@ class Server extends EventEmitter {
   data:ObservedRemoveMap<string, any>;
   peers:ObservedRemoveMap<number, Array<number>>;
   providers:ObservedRemoveMap<number, Array<string>>;
-  provideCallbacks:Map<string, (string, boolean) => void>;
+  provideCallbacks:Map<string, (string, boolean) => void|Promise<void>>;
   activeProviders:ObservedRemoveMap<string, [number, string]>;
-  peerSubscriptions:ObservedRemoveMap<string>;
+  peerSubscriptions:ObservedRemoveSet<string>;
   peerSubscriptionMap:Map<number, Set<number>>;
   providerRegexes: Map<number, Array<[string, RegExp]>>;
   credentialsHandlerPromises: Map<number, Promise<void>>;

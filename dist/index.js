@@ -1,5 +1,7 @@
 //      
 
+                                                                   
+
 const crypto = require('crypto');
 const farmhash = require('farmhash');
 const { hash32 } = require('@bunchtogether/hash-object');
@@ -685,7 +687,7 @@ class Server extends EventEmitter {
    * @param {(key:string, active:boolean) => void} callback Callback function, called when a provider should start or stop providing values
    * @return {void}
    */
-  provide(regexString       , callback                                      ) {
+  provide(regexString       , callback                                                    ) {
     const regexStrings = new Set(this.providers.get(this.id));
     regexStrings.add(regexString);
     this.providers.set(this.id, [...regexStrings]);
@@ -777,6 +779,7 @@ class Server extends EventEmitter {
    * @return {void}
    */
   removePeer(peerId        ) {
+    this.logger.info(`${this.id}: Removing peer ${peerId}`);
     this.peers.delete(peerId);
     this.providers.delete(peerId);
     this.providerRegexes.delete(peerId);
@@ -785,7 +788,7 @@ class Server extends EventEmitter {
         this.peerSubscriptions.delete([pId, key]);
       }
     }
-    for (const [key, pId] of this.activeProviders) {
+    for (const [key, [pId]] of this.activeProviders) {
       if (pId === peerId) {
         this.activeProviders.delete(key);
         this.assignProvider(key);
@@ -1015,7 +1018,7 @@ class Server extends EventEmitter {
                                       
                                                  
                                                      
-                                                          
+                                                                        
                                                               
                                               
                                                

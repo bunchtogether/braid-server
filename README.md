@@ -120,7 +120,7 @@ Top level handler for incoming credentials messages. Uses the default/custom cre
 
 ##### Parameters
 
--   `socketId` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Socket ID from which the credentials were received
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID from which the credentials were received
 -   `existingCredentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Existing credentials object
 -   `clientCredentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object provided by the client
 
@@ -132,7 +132,7 @@ Top level handler for incoming peer request messages. Uses the default/custom pe
 
 ##### Parameters
 
--   `socketId` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Socket ID from which the request was received
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID from which the request was received
 -   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object
 -   `peerId` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Peer ID provided by the client
 
@@ -144,7 +144,7 @@ Top level handler for incoming subscribe request messages. Uses the default/cust
 
 ##### Parameters
 
--   `socketId` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Socket ID from which the request was received
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID from which the request was received
 -   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object
 -   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key the subscriber is requesting updates on
 
@@ -177,7 +177,7 @@ Add a subscription to a socket.
 
 ##### Parameters
 
--   `socketId` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Socket ID of the subscriber
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the subscriber
 -   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key to provide the subscriber with updates
 
 Returns **void** 
@@ -188,7 +188,7 @@ Remove a subscription from a socket.
 
 ##### Parameters
 
--   `socketId` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Socket ID of the subscriber
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the subscriber
 -   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key on which the subscriber should stop receiving updates
 
 Returns **void** 
@@ -199,7 +199,7 @@ Remove all subscriptions from a socket, for example after the socket disconnects
 
 ##### Parameters
 
--   `socketId` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Socket ID of the subscriber
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the subscriber
 -   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key on which the subscriber should stop receiving updates
 
 Returns **void** 
@@ -221,7 +221,7 @@ Indicate this server instance is providing for keys matching the regex string.
 ##### Parameters
 
 -   `regexString` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Regex to match keys with
--   `callback` **function (key: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), active: [boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)): void** 
+-   `callback` **function (key: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), active: [boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)): (void | [Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;void>)** 
 
 Returns **void** 
 
@@ -270,7 +270,7 @@ Removes a peer, reassigning any active providers.
 
 ##### Parameters
 
--   `peerId` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Peer ID of the peer
+-   `peerId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Peer ID of the peer
 
 Returns **void** 
 
