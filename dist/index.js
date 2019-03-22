@@ -623,8 +623,11 @@ class Server extends EventEmitter {
       throw new Error(`Can not add subscriber with socket ID ${socketId} for key ${key}, socket does not exist`);
     }
     this.subscriptions.addEdge(socketId, key);
-    if (!this.peerSubscriptions.has([this.id, key])) {
-      this.peerSubscriptions.add([this.id, key]);
+    this.peerSubscriptions.add([this.id, key]);
+    const pair = this.data.pairs.get(key);
+    if (pair) {
+      const insertionQueue = [[key, pair]];
+      ws.send(getArrayBuffer(encode(new DataDump([insertionQueue, []]))), true, false);
     }
     this.assignProvider(key);
   }
