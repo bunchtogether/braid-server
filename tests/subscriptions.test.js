@@ -45,7 +45,7 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
       const providePromise = new Promise((resolve, reject) => { // eslint-disable-line no-loop-func
         let stage = 1;
         const timeout = setTimeout(() => {
-          serverA.unprovide('.*', provideHandler);
+          serverA.unprovide('.*');
           reject(new Error('Timeout when waiting for key'));
         }, 1000);
         const provideHandler = (key, active) => {
@@ -54,7 +54,7 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
             stage = 2;
           } else if (!active && stage === 2) {
             stage = 3;
-            serverA.unprovide('.*', provideHandler);
+            serverA.unprovide('.*');
             clearTimeout(timeout);
             resolve();
           } else {

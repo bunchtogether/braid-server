@@ -32,7 +32,7 @@ class CredentialsError extends Error {
 }
 
 class PeerConnection extends EventEmitter {
-  constructor(id: number, address:string, credentials?:Object) {
+  constructor(id: number, address:string, credentials?:Object = {}) {
     super();
     this.id = id;
     this.address = address;

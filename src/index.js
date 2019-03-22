@@ -1010,7 +1010,7 @@ class Server extends EventEmitter {
   isClosing: boolean;
   id: number;
   flushInterval: IntervalID;
-  messageHashes: LruCache;
+  messageHashes: LruCache<number, boolean>;
   subscriptions:DirectedGraphMap<string, string>;
   peerSockets:DirectedGraphMap<number, number>;
   peerConnections:Map<number, PeerConnection>;
@@ -1020,7 +1020,7 @@ class Server extends EventEmitter {
   providers:ObservedRemoveMap<number, Array<string>>;
   provideCallbacks:Map<string, (string, boolean) => void|Promise<void>>;
   activeProviders:ObservedRemoveMap<string, [number, string]>;
-  peerSubscriptions:ObservedRemoveSet<string>;
+  peerSubscriptions:ObservedRemoveSet<[number, string]>;
   peerSubscriptionMap:Map<number, Set<number>>;
   providerRegexes: Map<number, Array<[string, RegExp]>>;
   credentialsHandlerPromises: Map<number, Promise<void>>;
