@@ -40,6 +40,7 @@ function randomInteger() {
   return crypto.randomBytes(4).readUInt32BE(0, true);
 }
 
+
 /**
  * Class representing a Braid Server
  */
@@ -130,7 +131,6 @@ class Server extends EventEmitter {
       this.activeProviders.flush();
       this.peerSubscriptions.flush();
     }, 10000);
-
     this.setCredentialsHandler(async (credentials: Object) => // eslint-disable-line no-unused-vars
       ({ success: true, code: 200, message: 'OK' }),
     );
@@ -221,8 +221,9 @@ class Server extends EventEmitter {
       open: (ws, req) => { // eslint-disable-line no-unused-vars
         const socketId = randomInteger();
         ws.id = socketId; // eslint-disable-line no-param-reassign
-        ws.credentials = {}; // eslint-disable-line no-param-reassign
-        ws.credentials.ip = requestIp(ws, req); // eslint-disable-line no-param-reassign
+        ws.credentials = { // eslint-disable-line no-param-reassign
+          ip: requestIp(ws, req),
+        };
         this.sockets.set(socketId, ws);
         this.emit(OPEN, socketId);
         this.logger.info(`Opened socket with ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId})`);
@@ -272,6 +273,10 @@ class Server extends EventEmitter {
         }
         this.sockets.delete(socketId);
         this.logger.info(`Closed socket with ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}), code ${code}`);
+        const { credentials } = ws;
+        if (credentials && credentials.client) {
+          this.emit('presence', credentials, false);
+        }
         delete ws.id; // eslint-disable-line no-param-reassign
         delete ws.credentials; // eslint-disable-line no-param-reassign
       },
@@ -426,6 +431,7 @@ class Server extends EventEmitter {
     if (response.success) {
       this.logger.info(`Credentials from ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) accepted`);
       ws.credentials = credentials; // eslint-disable-line no-param-reassign
+      this.emit('presence', credentials, true);
     } else {
       this.logger.info(`Credentials from ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) rejected`);
     }

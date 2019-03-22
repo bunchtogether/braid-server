@@ -18,6 +18,10 @@ describe('Connection', () => {
   let stopWebsocketServer;
   let server;
   let client;
+  const credentialsValue = {
+    [uuid.v4()]: uuid.v4(),
+    [uuid.v4()]: uuid.v4(),
+  };
 
   beforeAll(async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
@@ -27,7 +31,6 @@ describe('Connection', () => {
   });
 
   afterAll(async () => {
-    await client.close();
     await server.close();
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
@@ -42,23 +45,44 @@ describe('Connection', () => {
     await openPromise;
   });
 
-  test('Should send credentials', async () => {
-    const value = {
-      [uuid.v4()]: uuid.v4(),
-      [uuid.v4()]: uuid.v4(),
-    };
+  test('Should handle credentials and emit an presence online event', async () => {
+    const emitPresencePromise = new Promise((resolve) => {
+      const handlePresence = (credentials, online) => {
+        if (online) {
+          expect(credentials).toEqual({ client: credentialsValue, ip: '127.0.0.1' });
+          server.removeListener('presence', handlePresence);
+          resolve();
+        }
+      };
+      server.on('presence', handlePresence);
+    });
     const handleCredentialsPromise = new Promise((resolve, reject) => {
       server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
-        if (isEqual({ client: value, ip: '127.0.0.1' }, credentials)) {
+        if (isEqual({ client: credentialsValue, ip: '127.0.0.1' }, credentials)) {
           resolve();
           return { success: true, code: 200, message: 'OK' };
         }
-        console.log(credentials);
         reject('Incorrect credentials');
         return { success: false, code: 400, message: 'Incorrect credentials' };
       });
     });
-    await client.sendCredentials(value);
+    await client.sendCredentials(credentialsValue);
     await handleCredentialsPromise;
+    await emitPresencePromise;
+  });
+
+  test('Should emit an presence offline event', async () => {
+    const emitPresencePromise = new Promise((resolve) => {
+      const handlePresence = (credentials, online) => {
+        if (!online) {
+          expect(credentials).toEqual({ client: credentialsValue, ip: '127.0.0.1' });
+          server.removeListener('presence', handlePresence);
+          resolve();
+        }
+      };
+      server.on('presence', handlePresence);
+    });
+    await client.close();
+    await emitPresencePromise;
   });
 });
