@@ -7,7 +7,7 @@
 -   [Server](#server)
     -   [Parameters](#parameters)
     -   [throwOnLeakedReferences](#throwonleakedreferences)
-    -   [publishDumpToPeers](#publishdumptopeers)
+    -   [publishToPeers](#publishtopeers)
         -   [Parameters](#parameters-1)
     -   [setCredentialsHandler](#setcredentialshandler)
         -   [Parameters](#parameters-2)
@@ -15,46 +15,58 @@
         -   [Parameters](#parameters-3)
     -   [setSubscribeRequestHandler](#setsubscriberequesthandler)
         -   [Parameters](#parameters-4)
-    -   [handleCredentialsRequest](#handlecredentialsrequest)
+    -   [setEventSubscribeRequestHandler](#seteventsubscriberequesthandler)
         -   [Parameters](#parameters-5)
-    -   [handlePeerRequest](#handlepeerrequest)
+    -   [handleCredentialsRequest](#handlecredentialsrequest)
         -   [Parameters](#parameters-6)
-    -   [handleSubscribeRequest](#handlesubscriberequest)
+    -   [handlePeerRequest](#handlepeerrequest)
         -   [Parameters](#parameters-7)
-    -   [handleMessage](#handlemessage)
+    -   [handleSubscribeRequest](#handlesubscriberequest)
         -   [Parameters](#parameters-8)
-    -   [publishData](#publishdata)
+    -   [handleEventSubscribeRequest](#handleeventsubscriberequest)
         -   [Parameters](#parameters-9)
-    -   [addSubscription](#addsubscription)
+    -   [handleMessage](#handlemessage)
         -   [Parameters](#parameters-10)
-    -   [removeSubscription](#removesubscription)
+    -   [publishEvent](#publishevent)
         -   [Parameters](#parameters-11)
-    -   [removeSubscriptions](#removesubscriptions)
+    -   [publishData](#publishdata)
         -   [Parameters](#parameters-12)
-    -   [assignProvider](#assignprovider)
+    -   [addEventSubscription](#addeventsubscription)
         -   [Parameters](#parameters-13)
-    -   [provide](#provide)
+    -   [removeEventSubscription](#removeeventsubscription)
         -   [Parameters](#parameters-14)
-    -   [unprovide](#unprovide)
+    -   [removeEventSubscriptions](#removeeventsubscriptions)
         -   [Parameters](#parameters-15)
+    -   [addSubscription](#addsubscription)
+        -   [Parameters](#parameters-16)
+    -   [removeSubscription](#removesubscription)
+        -   [Parameters](#parameters-17)
+    -   [removeSubscriptions](#removesubscriptions)
+        -   [Parameters](#parameters-18)
+    -   [assignProvider](#assignprovider)
+        -   [Parameters](#parameters-19)
+    -   [provide](#provide)
+        -   [Parameters](#parameters-20)
+    -   [unprovide](#unprovide)
+        -   [Parameters](#parameters-21)
     -   [closePeerConnections](#closepeerconnections)
     -   [updatePeers](#updatepeers)
     -   [connectedPeers](#connectedpeers)
-        -   [Parameters](#parameters-16)
+        -   [Parameters](#parameters-22)
     -   [prunePeers](#prunepeers)
     -   [removePeer](#removepeer)
-        -   [Parameters](#parameters-17)
+        -   [Parameters](#parameters-23)
     -   [addPeer](#addpeer)
-        -   [Parameters](#parameters-18)
+        -   [Parameters](#parameters-24)
     -   [close](#close)
     -   [connectToPeer](#connecttopeer)
-        -   [Parameters](#parameters-19)
+        -   [Parameters](#parameters-25)
     -   [handlePeerSync](#handlepeersync)
-        -   [Parameters](#parameters-20)
+        -   [Parameters](#parameters-26)
     -   [syncPeerConnection](#syncpeerconnection)
-        -   [Parameters](#parameters-21)
+        -   [Parameters](#parameters-27)
     -   [syncPeerSocket](#syncpeersocket)
-        -   [Parameters](#parameters-22)
+        -   [Parameters](#parameters-28)
 
 ### Server
 
@@ -74,13 +86,13 @@ Throw an error if any internal data exists. Intended for tests and debugging.
 
 Returns **void** 
 
-#### publishDumpToPeers
+#### publishToPeers
 
-Publish a dump to peers.
+Publish objects to peers.
 
 ##### Parameters
 
--   `dump` **(ProviderDump | DataDump | ActiveProviderDump | PeerDump | PeerSubscriptionDump)** Dump object to send
+-   `obj` **(ProviderDump | DataDump | ActiveProviderDump | PeerDump | PeerSubscriptionDump)** Object to send, should have "ids" property
 
 Returns **void** 
 
@@ -106,11 +118,21 @@ Returns **void**
 
 #### setSubscribeRequestHandler
 
-Set the subscribe request handler. Approves or denies subribe requests.
+Set the subscribe request handler. Approves or denies subscribe requests.
 
 ##### Parameters
 
 -   `func` **function (key: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), credentials: [Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)): [Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;{success: [boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean), code: [number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number), message: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)}>** 
+
+Returns **void** 
+
+#### setEventSubscribeRequestHandler
+
+Set the event subscribe request handler. Approves or denies event subscribe requests.
+
+##### Parameters
+
+-   `func` **function (name: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), credentials: [Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)): [Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;{success: [boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean), code: [number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number), message: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)}>** 
 
 Returns **void** 
 
@@ -150,13 +172,38 @@ Top level handler for incoming subscribe request messages. Uses the default/cust
 
 Returns **void** 
 
+#### handleEventSubscribeRequest
+
+Top level handler for incoming event subscribe request messages. Uses the default/custom eventSubscribeRequestHandler method to validate.
+
+##### Parameters
+
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID from which the request was received
+-   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object
+-   `name` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Event name the subscriber is requesting updates on
+
+Returns **void** 
+
 #### handleMessage
 
 Top level message handler, used by both sockets and connections.
 
 ##### Parameters
 
--   `message` **(DataDump | ProviderDump | ActiveProviderDump | PeerDump | PeerSubscriptionDump | PeerSync | PeerSyncResponse)** Message to handle
+-   `message` **(DataDump | ProviderDump | ActiveProviderDump | PeerDump | PeerSubscriptionDump | PeerSync | PeerSyncResponse | BraidEvent)** Message to handle
+
+Returns **void** 
+
+#### publishEvent
+
+Publish event to subscribers.
+
+##### Parameters
+
+-   `name` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** 
+-   `args` **[Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>** 
+-   `id` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** 
+-   `Event` **BraidEvent** object
 
 Returns **void** 
 
@@ -168,6 +215,38 @@ Publish data to subscribers.
 
 -   `queue` **\[[Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>, [Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>]** 
 -   `Data` **\[[Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>, [Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>]** dump queue.
+
+Returns **void** 
+
+#### addEventSubscription
+
+Add an event subscription to a socket.
+
+##### Parameters
+
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the subscriber
+-   `name` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Name of the event to send
+
+Returns **void** 
+
+#### removeEventSubscription
+
+Remove a subscription from a socket.
+
+##### Parameters
+
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the subscriber
+-   `name` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Name on which the subscriber should stop receiving events
+
+Returns **void** 
+
+#### removeEventSubscriptions
+
+Remove all subscriptions from a socket, for example after the socket disconnects
+
+##### Parameters
+
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the subscriber
 
 Returns **void** 
 
@@ -200,7 +279,6 @@ Remove all subscriptions from a socket, for example after the socket disconnects
 ##### Parameters
 
 -   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the subscriber
--   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key on which the subscriber should stop receiving updates
 
 Returns **void** 
 

@@ -908,26 +908,26 @@
     lodash "^4.17.11"
     to-fast-properties "^2.0.0"
 
-"@bunchtogether/braid-client@^1.0.2":
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-client/-/braid-client-1.0.2.tgz#125eae7a7c32337e7827e74c59ba669a22495593"
-  integrity sha512-uMGayVxOtjpwz8UX7XroNe4VgS58Pcg+ISXO0cMQTF8BmJCU+OWrdw5LENxsyjtO0MJYMjvVY8FAad3TYJCDAw==
+"@bunchtogether/braid-client@^1.0.4":
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-client/-/braid-client-1.0.4.tgz#f560de043baf425f6aaf22fe84865604dd6b3301"
+  integrity sha512-1eb72CzWh6UDcuSo+CVfl9/LymdFu9lNHBIddW7drkLczFoar2d/vFkklUbjGGsy2DFW/tWlkqD7f21ycSvezA==
   dependencies:
     "@bunchtogether/braid-messagepack" "^1.0.0"
     isomorphic-ws "^4.0.1"
     observed-remove "^2.2.0"
 
+"@bunchtogether/braid-messagepack@1.0.9":
+  version "1.0.9"
+  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-messagepack/-/braid-messagepack-1.0.9.tgz#12a46a6b87d000545bc69beb4625b36b9b8c2cca"
+  integrity sha512-+LFu7eUTcgN1lqLHEuSLPuh6R+nPdu5opftpqi3yTdRGqEfif0hElkTQWQAPRkRXXCxpuQgx0rgwKSGZNwtL+w==
+  dependencies:
+    msgpack5 "^4.2.1"
+
 "@bunchtogether/braid-messagepack@^1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@bunchtogether/braid-messagepack/-/braid-messagepack-1.0.0.tgz#0d79f85d5677a244197a800e64d442b3eebeee4a"
   integrity sha512-EUyxwYwyESzO7KWESFYOYkE7LuMDBQFVY6a+KmdZ104CB3BwHXYi/K7nZb1FwNGOiG66el+VJQ+euYl6D9qLdg==
-  dependencies:
-    msgpack5 "^4.2.1"
-
-"@bunchtogether/braid-messagepack@^1.0.2":
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-messagepack/-/braid-messagepack-1.0.2.tgz#f4906bf975c29a89082fe8ed8fe674de37f7ce69"
-  integrity sha512-mNFk6bGt4QWhovoV87unGsW02Wasa4MH3se0MD6PJhDocHrPsFuByf4bszk4a0UFXwCdvqF9o9h3Q5jHM+DkPg==
   dependencies:
     msgpack5 "^4.2.1"
 

@@ -2,6 +2,7 @@
 
                                                                    
 
+const uuid = require('uuid');
 const crypto = require('crypto');
 const farmhash = require('farmhash');
 const { hash32 } = require('@bunchtogether/hash-object');
@@ -30,6 +31,10 @@ const {
   SubscribeRequest,
   SubscribeResponse,
   Unsubscribe,
+  EventSubscribeRequest,
+  EventSubscribeResponse,
+  EventUnsubscribe,
+  BraidEvent,
 } = require('@bunchtogether/braid-messagepack');
 
 const {
@@ -113,6 +118,11 @@ class Server extends EventEmitter {
     //   Target: Key
     this.subscriptions = new DirectedGraphMap();
 
+    // Active event subscriptions
+    //   Source: Socket ID
+    //   Target: Event Name
+    this.eventSubscriptions = new DirectedGraphMap();
+
     // Active credential handler promises
     //   Key: Socket ID
     //   Value: Promise<void>
@@ -140,21 +150,24 @@ class Server extends EventEmitter {
     this.setSubscribeRequestHandler(async (key       , credentials        ) => // eslint-disable-line no-unused-vars
       ({ success: true, code: 200, message: 'OK' }),
     );
+    this.setEventSubscribeRequestHandler(async (name       , credentials        ) => // eslint-disable-line no-unused-vars
+      ({ success: true, code: 200, message: 'OK' }),
+    );
     this.data.on('publish', (queue                     ) => {
-      this.publishDumpToPeers(new DataDump(queue, [this.id]));
+      this.publishToPeers(new DataDump(queue, [this.id]));
       this.publishData(queue);
     });
     this.providers.on('publish', (queue                     ) => {
-      this.publishDumpToPeers(new ProviderDump(queue, [this.id]));
+      this.publishToPeers(new ProviderDump(queue, [this.id]));
     });
     this.activeProviders.on('publish', (queue                     ) => {
-      this.publishDumpToPeers(new ActiveProviderDump(queue, [this.id]));
+      this.publishToPeers(new ActiveProviderDump(queue, [this.id]));
     });
     this.peers.on('publish', (queue                     ) => {
-      this.publishDumpToPeers(new PeerDump(queue, [this.id]));
+      this.publishToPeers(new PeerDump(queue, [this.id]));
     });
     this.peerSubscriptions.on('publish', (queue                     ) => {
-      this.publishDumpToPeers(new PeerSubscriptionDump(queue, [this.id]));
+      this.publishToPeers(new PeerSubscriptionDump(queue, [this.id]));
     });
     this.peerSubscriptions.on('add', ([peerId, key]) => {
       let peerIds = this.peerSubscriptionMap.get(key);
@@ -242,7 +255,7 @@ class Server extends EventEmitter {
           return;
         }
         const message = decode(data);
-        if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse) {
+        if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent) {
           if (!this.peerSockets.hasSource(socketId)) {
             this.logger.error(`Received dump from non-peer ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId})`);
             return;
@@ -257,6 +270,10 @@ class Server extends EventEmitter {
           this.handleSubscribeRequest(socketId, ws.credentials, message.value);
         } else if (message instanceof Unsubscribe) {
           this.removeSubscription(socketId, message.value);
+        } else if (message instanceof EventSubscribeRequest) {
+          this.handleEventSubscribeRequest(socketId, ws.credentials, message.value);
+        } else if (message instanceof EventUnsubscribe) {
+          this.removeEventSubscription(socketId, message.value);
         }
       },
       close: (ws, code, data) => { // eslint-disable-line no-unused-vars
@@ -266,6 +283,7 @@ class Server extends EventEmitter {
           return;
         }
         this.removeSubscriptions(socketId);
+        this.removeEventSubscriptions(socketId);
         if (this.peerSockets.hasSource(socketId)) {
           this.peerSockets.removeSource(socketId);
           this.updatePeers();
@@ -282,6 +300,12 @@ class Server extends EventEmitter {
       },
     });
     uwsServer.ws(websocketPattern, options);
+  }
+
+  emitToClients(name        , ...args           ) {
+    const id = uuid.v4();
+    this.publishEvent(name, args, id);
+    this.publishToPeers(new BraidEvent(name, args, id, [this.id]));
   }
 
   /**
@@ -310,10 +334,13 @@ class Server extends EventEmitter {
       throw new Error(`${this.id}: ${this.providerRegexes.size} referenced provider regexes`);
     }
     if (this.subscriptions.size > 0) {
-      throw new Error(`${this.id}: ${this.subscriptions.size} referenced peer subscriptions`);
+      throw new Error(`${this.id}: ${this.subscriptions.size} referenced subscribers`);
+    }
+    if (this.eventSubscriptions.size > 0) {
+      throw new Error(`${this.id}: ${this.eventSubscriptions.size} referenced event subscribers`);
     }
     if (this.peerSubscriptions.size > 0) {
-      throw new Error(`${this.id}: ${this.peerSubscriptions.size} referenced subscribers`);
+      throw new Error(`${this.id}: ${this.peerSubscriptions.size} referenced peer subscription`);
     }
     if (this.activeProviders.size > 0) {
       throw new Error(`${this.id}: ${this.activeProviders.size} referenced activeProviders`);
@@ -321,12 +348,12 @@ class Server extends EventEmitter {
   }
 
   /**
-   * Publish a dump to peers.
-   * @param {ProviderDump|DataDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump} dump - Dump object to send
+   * Publish objects to peers.
+   * @param {ProviderDump|DataDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump} obj - Object to send, should have "ids" property
    * @return {void}
    */
-  publishDumpToPeers(dump                                                                       ) {
-    const peerIds = dump.ids;
+  publishToPeers(obj                                                                                  ) {
+    const peerIds = obj.ids;
     const peerSockets = [];
     const peerUWSSockets = [];
     for (const [socketId, peerId] of this.peerSockets.edges) {
@@ -355,7 +382,7 @@ class Server extends EventEmitter {
     if (peerSockets.length === 0 && peerUWSSockets.length === 0) {
       return;
     }
-    const encoded = encode(dump);
+    const encoded = encode(obj);
     for (const ws of peerSockets) {
       ws.send(encoded);
     }
@@ -387,12 +414,22 @@ class Server extends EventEmitter {
   }
 
   /**
-   * Set the subscribe request handler. Approves or denies subribe requests.
+   * Set the subscribe request handler. Approves or denies subscribe requests.
    * @param {(credentials: Object) => Promise<{ success: boolean, code: number, message: string }>} func - Subscription request handler.
    * @return {void}
    */
   setSubscribeRequestHandler(func                                                                                                   ) { // eslint-disable-line no-unused-vars
     this.subscribeRequestHandler = func;
+  }
+
+
+  /**
+   * Set the event subscribe request handler. Approves or denies event subscribe requests.
+   * @param {(credentials: Object) => Promise<{ success: boolean, code: number, message: string }>} func - Event subscription request handler.
+   * @return {void}
+   */
+  setEventSubscribeRequestHandler(func                                                                                                    ) { // eslint-disable-line no-unused-vars
+    this.eventSubscribeRequestHandler = func;
   }
 
   /**
@@ -533,16 +570,58 @@ class Server extends EventEmitter {
   }
 
   /**
-   * Top level message handler, used by both sockets and connections.
-   * @param {DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse} message Message to handle
+   * Top level handler for incoming event subscribe request messages. Uses the default/custom eventSubscribeRequestHandler method to validate.
+   * @param {number} socketId Socket ID from which the request was received
+   * @param {Object} credentials Credentials object
+   * @param {string} name Event name the subscriber is requesting updates on
    * @return {void}
    */
-  handleMessage(message                                                                                                 ) {
+  async handleEventSubscribeRequest(socketId       , credentials       , name       ) {
+    // Wait for any credential handler operations to complete
+    await this.credentialsHandlerPromises.get(socketId);
+    let response;
+    try {
+      response = await this.eventSubscribeRequestHandler(name, credentials);
+    } catch (error) {
+      if (error.stack) {
+        this.logger.error('Event subscribe request handler error:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Event subscribe request handler error: ${error.message}`);
+      }
+      response = { success: false, code: 500, message: 'Event subscribe request handler error' };
+    }
+    const ws = this.sockets.get(socketId);
+    if (!ws) {
+      this.logger.error(`Cannot respond to event subscribe request from socket ID ${socketId}, socket does not exist`);
+      return;
+    }
+    if (response.success) {
+      this.addEventSubscription(socketId, name);
+    }
+    const unencoded = new EventSubscribeResponse({ name, success: response.success, code: response.code, message: response.message });
+    ws.send(getArrayBuffer(encode(unencoded)), true, false);
+  }
+
+  /**
+   * Top level message handler, used by both sockets and connections.
+   * @param {DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse|BraidEvent} message Message to handle
+   * @return {void}
+   */
+  handleMessage(message                                                                                                            ) {
     if (message instanceof PeerSync) {
       this.handlePeerSync(message);
       return;
     } else if (message instanceof PeerSyncResponse) {
       this.emit('peerSyncResponse', message.value);
+      return;
+    } else if (message instanceof BraidEvent) {
+      if (this.messageHashes.has(message.id)) {
+        return;
+      }
+      this.messageHashes.set(message.id, true);
+      this.publishEvent(message.name, message.args, message.id);
+      this.publishToPeers(message);
       return;
     }
     const hash = hash32(message.queue);
@@ -562,7 +641,27 @@ class Server extends EventEmitter {
     } else if (message instanceof PeerDump) {
       this.peers.process(message.queue, true);
     }
-    this.publishDumpToPeers(message);
+    this.publishToPeers(message);
+  }
+
+  /**
+   * Publish event to subscribers.
+   * @param {BraidEvent} Event object
+   * @return {void}
+   */
+  publishEvent(name       , args           , id       ) {
+    let encoded;
+    for (const socketId of this.eventSubscriptions.getSources(name)) {
+      const ws = this.sockets.get(socketId);
+      if (!ws) {
+        throw new Error(`Can not publish data to event subscriber ${socketId}, socket does not exist`);
+      }
+      if (!encoded) {
+        const subscriberEvent = new BraidEvent(name, args, id, []);
+        encoded = getArrayBuffer(encode(subscriberEvent));
+      }
+      ws.send(encoded, true, false);
+    }
   }
 
   /**
@@ -618,6 +717,41 @@ class Server extends EventEmitter {
   }
 
   /**
+   * Add an event subscription to a socket.
+   * @param {number} socketId Socket ID of the subscriber
+   * @param {string} name Name of the event to send
+   * @return {void}
+   */
+  addEventSubscription(socketId       , name       ) {
+    const ws = this.sockets.get(socketId);
+    if (!ws) {
+      throw new Error(`Can not add event subscriber with socket ID ${socketId} for name ${name}, socket does not exist`);
+    }
+    this.eventSubscriptions.addEdge(socketId, name);
+  }
+
+  /**
+   * Remove a subscription from a socket.
+   * @param {number} socketId Socket ID of the subscriber
+   * @param {string} name Name on which the subscriber should stop receiving events
+   * @return {void}
+   */
+  removeEventSubscription(socketId       , name       ) {
+    this.eventSubscriptions.removeEdge(socketId, name);
+  }
+
+  /**
+   * Remove all subscriptions from a socket, for example after the socket disconnects
+   * @param {number} socketId Socket ID of the subscriber
+   * @return {void}
+   */
+  removeEventSubscriptions(socketId       ) {
+    for (const name of this.eventSubscriptions.getTargets(socketId)) {
+      this.removeEventSubscription(socketId, name);
+    }
+  }
+
+  /**
    * Add a subscription to a socket.
    * @param {number} socketId Socket ID of the subscriber
    * @param {string} key Key to provide the subscriber with updates
@@ -654,7 +788,6 @@ class Server extends EventEmitter {
   /**
    * Remove all subscriptions from a socket, for example after the socket disconnects
    * @param {number} socketId Socket ID of the subscriber
-   * @param {string} key Key on which the subscriber should stop receiving updates
    * @return {void}
    */
   removeSubscriptions(socketId       ) {
@@ -1020,7 +1153,8 @@ class Server extends EventEmitter {
              
                             
                                            
-                                                 
+                                                       
+                                                  
                                                
                                               
                                     
@@ -1036,6 +1170,7 @@ class Server extends EventEmitter {
                                                                                                             
                                                                                                             
                                                                                                                              
+                                                                                                                                   
            
                             
                            

@@ -1,6 +1,6 @@
 {
   "name": "@bunchtogether/braid-server",
-  "version": "1.0.4",
+  "version": "1.0.9",
   "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
@@ -63,7 +63,7 @@
   },
   "dependencies": {
     "@bunchtogether/braid-client": "^1.0.4",
-    "@bunchtogether/braid-messagepack": "^1.0.2",
+    "@bunchtogether/braid-messagepack": "1.0.9",
     "@bunchtogether/hash-object": "^1.0.2",
     "colors": "^1.3.3",
     "directed-graph-map": "1.2.5",
