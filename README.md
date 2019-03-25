@@ -1,6 +1,6 @@
 # Braid Key-Value Data Synchronization Server
 
-[![CircleCI](https://circleci.com/gh/bunchtogether/braid-server.svg?style=svg)](https://circleci.com/gh/bunchtogether/braid-server) [![npm version](https://badge.fury.io/js/observed-remove.svg)](http://badge.fury.io/js/observed-remove) [![codecov](https://codecov.io/gh/bunchtogether/braid-server/branch/master/graph/badge.svg)](https://codecov.io/gh/bunchtogether/braid-server)
+[![CircleCI](https://circleci.com/gh/bunchtogether/braid-server.svg?style=svg)](https://circleci.com/gh/bunchtogether/braid-server) [![npm version](https://badge.fury.io/js/%40bunchtogether%2Fbraid-server.svg)](http://badge.fury.io/js/%40bunchtogether%2Fbraid-server) [![codecov](https://codecov.io/gh/bunchtogether/braid-server/branch/master/graph/badge.svg)](https://codecov.io/gh/bunchtogether/braid-server)
 
 ## API
 

@@ -47,3 +47,4 @@ flow
 README.md
 tests/benchmark.js
 src/uWebSockets.js
+malloc-example.js
