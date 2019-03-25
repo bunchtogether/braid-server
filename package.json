@@ -8,7 +8,7 @@
     "build": "rm -rf ./dist; flow-remove-types ./src --out-dir ./dist && flow-copy-source ./src ./dist",
     "flow-typed": "./node_modules/.bin/flow-typed install --overwrite",
     "test": "yarn lint && yarn test:js",
-    "test:js": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles tests",
+    "test:js": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles /Users/johnwehr/Projects/bunch/braid/server/tests/peers-ring.test.js",
     "lint": "npm run lint:js && npm run lint:flow",
     "lint:js": "eslint -c ./.eslintrc --no-eslintrc --fix --cache .",
     "lint:flow": "flow --show-all-errors",
