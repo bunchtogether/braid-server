@@ -1,6 +1,13 @@
-# Braid Key-Value Data Synchronization Server
+# Braid Server
 
 [![CircleCI](https://circleci.com/gh/bunchtogether/braid-server.svg?style=svg)](https://circleci.com/gh/bunchtogether/braid-server) [![npm version](https://badge.fury.io/js/%40bunchtogether%2Fbraid-server.svg)](http://badge.fury.io/js/%40bunchtogether%2Fbraid-server) [![codecov](https://codecov.io/gh/bunchtogether/braid-server/branch/master/graph/badge.svg)](https://codecov.io/gh/bunchtogether/braid-server)
+
+WebSocket-based key-value synchronization.
+
+See also:
+
+-   [Client](https://github.com/bunchtogether/braid-client-js)
+-   [MessagePack Definitions](https://github.com/bunchtogether/braid-messagepack)
 
 ## API
 

@@ -76,7 +76,7 @@ class Server extends EventEmitter {
 
     // Active provider map for each key
     //   Key: key
-    //   Value: Peer ID
+    //   Value: [Peer ID, regex string]
     this.activeProviders = new ObservedRemoveMap([], { bufferPublishing: 0 });
 
     // Peers which are currently subscribed to a key
@@ -354,7 +354,7 @@ class Server extends EventEmitter {
    */
   publishToPeers(obj:ProviderDump|DataDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|BraidEvent) {
     const peerIds = obj.ids;
-    const peerSockets = [];
+    const peerConnections = [];
     const peerUWSSockets = [];
     for (const [socketId, peerId] of this.peerSockets.edges) {
       if (this.peerConnections.has(peerId)) {
@@ -376,14 +376,14 @@ class Server extends EventEmitter {
       }
       if (peerConnection.ws.readyState === 1) {
         peerIds.push(peerId);
-        peerSockets.push(peerConnection.ws);
+        peerConnections.push(peerConnection.ws);
       }
     }
-    if (peerSockets.length === 0 && peerUWSSockets.length === 0) {
+    if (peerConnections.length === 0 && peerUWSSockets.length === 0) {
       return;
     }
     const encoded = encode(obj);
-    for (const ws of peerSockets) {
+    for (const ws of peerConnections) {
       ws.send(encoded);
     }
     if (peerUWSSockets.length === 0) {
@@ -921,7 +921,7 @@ class Server extends EventEmitter {
    * @return {void}
    */
   removePeer(peerId: number) {
-    this.logger.info(`${this.id}: Removing peer ${peerId}`);
+    this.logger.info(`Removing peer ${peerId}`);
     this.peers.delete(peerId);
     this.providers.delete(peerId);
     this.providerRegexes.delete(peerId);
