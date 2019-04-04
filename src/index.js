@@ -128,6 +128,11 @@ class Server extends EventEmitter {
     //   Value: Promise<void>
     this.credentialsHandlerPromises = new Map();
 
+    // Keys without subscribers that should be flushed from data
+    //   Key: key
+    //   Value: Timestamp when the key should be deleted
+    this.keysForDeletion = new Map();
+
     this.id = randomInteger();
 
     this.logger = makeLogger(`Braid Server ${this.id}`);
@@ -140,6 +145,13 @@ class Server extends EventEmitter {
       this.providers.flush();
       this.activeProviders.flush();
       this.peerSubscriptions.flush();
+      const now = Date.now();
+      for (const [key, timestamp] of this.keysForDeletion) {
+        if (timestamp < now) {
+          this.keysForDeletion.delete(key);
+          this.data.delete(key);
+        }
+      }
     }, 10000);
     this.setCredentialsHandler(async (credentials: Object) => // eslint-disable-line no-unused-vars
       ({ success: true, code: 200, message: 'OK' }),
@@ -171,6 +183,7 @@ class Server extends EventEmitter {
     });
     this.peerSubscriptions.on('add', ([peerId, key]) => {
       let peerIds = this.peerSubscriptionMap.get(key);
+      this.keysForDeletion.delete(key);
       if (!peerIds) {
         peerIds = new Set();
         this.peerSubscriptionMap.set(key, peerIds);
@@ -186,6 +199,7 @@ class Server extends EventEmitter {
       if (peerIds.size === 0) {
         this.peerSubscriptionMap.delete(key);
         this.activeProviders.delete(key);
+        this.keysForDeletion.set(key, Date.now() + 1000 * 60);
       }
     });
     this.peers.on('set', (peerId, peerIds, previousPeerIds) => {
@@ -1171,6 +1185,7 @@ class Server extends EventEmitter {
   credentialsHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   subscribeRequestHandler: (key:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   eventSubscribeRequestHandler: (name:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
+  keysForDeletion:Map<string, number>;
   logger: {
     debug: (string) => void,
     info: (string) => void,
