@@ -1,6 +1,6 @@
 {
   "name": "@bunchtogether/braid-server",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
@@ -75,7 +75,7 @@
     "nanomatch": "^1.2.13",
     "observed-remove": "2.2.2",
     "p-queue": "^4.0.0",
-    "uWebSockets.js": "uNetworking/uWebSockets.js#v15.9.0",
+    "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v15.9.0.tar.gz",
     "uuid": "^3.3.2",
     "winston": "^3.2.1",
     "ws": "^6.2.0"
