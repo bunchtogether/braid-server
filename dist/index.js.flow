@@ -678,10 +678,10 @@ class Server extends EventEmitter {
       for (const socketId of this.subscriptions.getSources(key)) {
         let subscriptions = subscriptionMap.get(socketId);
         if (!subscriptions) {
-          subscriptions = [];
+          subscriptions = new Set();
           subscriptionMap.set(socketId, subscriptions);
         }
-        subscriptions.push(key);
+        subscriptions.add(key);
       }
     }
     for (const [valueId, key] of queue[1]) {
@@ -689,10 +689,10 @@ class Server extends EventEmitter {
       for (const socketId of this.subscriptions.getSources(key)) {
         let subscriptions = subscriptionMap.get(socketId);
         if (!subscriptions) {
-          subscriptions = [];
+          subscriptions = new Set();
           subscriptionMap.set(socketId, subscriptions);
         }
-        subscriptions.push(key);
+        subscriptions.add(key);
       }
     }
     for (const [socketId, keys] of subscriptionMap) {
