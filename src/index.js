@@ -145,6 +145,9 @@ class Server extends EventEmitter {
       this.providers.flush();
       this.activeProviders.flush();
       this.peerSubscriptions.flush();
+    }, 10000);
+
+    this.keyFlushInterval = setInterval(() => {
       const now = Date.now();
       for (const [key, timestamp] of this.keysForDeletion) {
         if (timestamp < now) {
@@ -152,7 +155,8 @@ class Server extends EventEmitter {
           this.data.delete(key);
         }
       }
-    }, 10000);
+    }, 3600000);
+
     this.setCredentialsHandler(async (credentials: Object) => // eslint-disable-line no-unused-vars
       ({ success: true, code: 200, message: 'OK' }),
     );
@@ -199,7 +203,7 @@ class Server extends EventEmitter {
       if (peerIds.size === 0) {
         this.peerSubscriptionMap.delete(key);
         this.activeProviders.delete(key);
-        this.keysForDeletion.set(key, Date.now() + 1000 * 60);
+        this.keysForDeletion.set(key, Date.now() + 86400000);
       }
     });
     this.peers.on('set', (peerId, peerIds, previousPeerIds) => {
@@ -993,6 +997,7 @@ class Server extends EventEmitter {
     }
     this.isClosing = false;
     clearInterval(this.flushInterval);
+    clearInterval(this.keyFlushInterval);
   }
 
   /**
@@ -1166,6 +1171,7 @@ class Server extends EventEmitter {
   isClosing: boolean;
   id: number;
   flushInterval: IntervalID;
+  keyFlushInterval: IntervalID;
   messageHashes: LruCache<number, boolean>;
   eventSubscriptions: DirectedGraphMap<number, string>;
   subscriptions: DirectedGraphMap<number, string>;
