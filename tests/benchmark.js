@@ -166,7 +166,7 @@ const runDeepstream = async () => {
 
 const run = async () => {
   await runBraid();
-  await runDeepstream();
+  //await runDeepstream();
   process.exit(0);
 };
 

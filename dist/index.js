@@ -376,9 +376,6 @@ class Server extends EventEmitter {
     const peerConnections = [];
     const peerUWSSockets = [];
     for (const [socketId, peerId] of this.peerSockets.edges) {
-      if (this.peerConnections.has(peerId)) {
-        continue;
-      }
       if (peerIds.includes(peerId)) {
         continue;
       }
@@ -389,13 +386,13 @@ class Server extends EventEmitter {
       peerIds.push(peerId);
       peerUWSSockets.push(ws);
     }
-    for (const [peerId, peerConnection] of this.peerConnections) {
+    for (const [peerId, { ws }] of this.peerConnections) {
       if (peerIds.includes(peerId)) {
         continue;
       }
-      if (peerConnection.ws.readyState === 1) {
+      if (ws.readyState === 1) {
         peerIds.push(peerId);
-        peerConnections.push(peerConnection.ws);
+        peerConnections.push(ws);
       }
     }
     if (peerConnections.length === 0 && peerUWSSockets.length === 0) {
