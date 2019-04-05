@@ -70,17 +70,20 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
       const key = uuid.v4();
       await new Promise((resolve, reject) => { // eslint-disable-line no-loop-func
         const timeout = setTimeout(() => {
-          client.unsubscribe(key, handler);
+          client.unsubscribe(key);
+          client.data.removeListener('set', handler);
           reject(new Error('Timeout when waiting for key'));
         }, 1000);
-        const handler = (value:string) => {
-          if (key === value) {
-            client.unsubscribe(key, handler);
+        const handler = (k, v) => {
+          if (k === key && v === key) {
             clearTimeout(timeout);
+            client.unsubscribe(key);
+            client.data.removeListener('set', handler);
             resolve();
           }
         };
-        client.subscribe(key, handler);
+        client.data.on('set', handler);
+        client.subscribe(key);
       });
       await providePromise;
       for (const { server } of peers) {

@@ -67,13 +67,14 @@ describe(`${count} peers in a ring with a provider`, () => {
     expect(regexB.test(key)).toEqual(true);
     expect(regexA.test(uuid.v4())).toEqual(false);
     expect(regexB.test(uuid.v4())).toEqual(false);
-    await client.subscribe(key, () => {});
+    await client.subscribe(key);
     for (const { server } of peers) {
       await expect(server.activeProviders).toReceiveProperty(key, [serverA.id, key]);
     }
     await provideStartPromise;
     await expect(client.data).toReceiveProperty(key, value);
     serverA.unprovide(key);
+    await client.unsubscribe(key);
   });
 
   test('Should automatically update after a provider closes', async () => {
@@ -101,15 +102,20 @@ describe(`${count} peers in a ring with a provider`, () => {
     }
     const callbackPromiseA = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        client.unsubscribe(key);
+        client.data.removeListener('set', handler);
         reject(new Error('Timeout when waiting for subscribe'));
       }, 10000);
-      const handler = (value) => {
-        if (value === valueA) {
+      const handler = (k, v) => {
+        if (k === key && v === valueA) {
+          client.unsubscribe(key);
           clearTimeout(timeout);
+          client.data.removeListener('set', handler);
           resolve();
         }
       };
-      client.subscribe(key, handler);
+      client.data.on('set', handler);
+      client.subscribe(key);
     });
     await providePromiseA;
     await callbackPromiseA;
@@ -118,15 +124,20 @@ describe(`${count} peers in a ring with a provider`, () => {
     }
     const callbackPromiseB = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        client.unsubscribe(key);
+        client.data.removeListener('set', handler);
         reject(new Error('Timeout when waiting for subscribe'));
       }, 10000);
-      const handler = (value) => {
-        if (value === valueB) {
+      const handler = (k, v) => {
+        if (k === key && v === valueB) {
+          client.unsubscribe(key);
           clearTimeout(timeout);
+          client.data.removeListener('set', handler);
           resolve();
         }
       };
-      client.subscribe(key, handler);
+      client.data.on('set', handler);
+      client.subscribe(key);
     });
     const providePromiseB = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
