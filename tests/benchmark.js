@@ -33,34 +33,32 @@ const runBraid = async () => {
   const dataA = peers[0].data;
   const dataB = peers[Math.floor(peers.length / 2)].data;
   const key = uuid.v4();
-  let activeValueA = { value: uuid.v4() };
-  let activeValueB = { value: uuid.v4() };
+  const valueA = { value: uuid.v4() };
+  const valueB = { value: uuid.v4() };
+  let activeValueA = valueA;
+  let activeValueB = valueB;
   let responseCount = 0;
   const handleSetA = (k, value) => {
-    if (value.value === activeValueB.value) {
+    if (value.value === valueB.value) {
       responseCount += 1;
-      activeValueA = { value: uuid.v4() };
-      activeValueB = { value: uuid.v4() };
-      dataA.set(key, activeValueA);
+      dataA.set(key, valueA);
     }
   };
   const handleSetB = (k, value) => {
-    if (value.value === activeValueA.value) {
+    if (value.value === valueA.value) {
       responseCount += 1;
-      activeValueA = { value: uuid.v4() };
-      activeValueB = { value: uuid.v4() };
-      dataB.set(key, activeValueB);
+      dataB.set(key, valueB);
     }
   };
   dataA.on('set', handleSetA);
   dataB.on('set', handleSetB);
-  dataA.set(key, activeValueA);
+  dataA.set(key, valueA);
   await new Promise((resolve) => setTimeout(resolve, 10000));
   dataA.removeListener('set', handleSetA);
   dataB.removeListener('set', handleSetB);
   await Promise.all(peers.map(({ server }) => server.close()));
   await Promise.all(peers.map(({ stop }) => stop()));
-  console.log(`${responseCount} responses in 10s`);
+  console.log(`${responseCount} Braid responses in 10s`);
 };
 
 const runDeepstream = async () => {
@@ -74,7 +72,7 @@ const runDeepstream = async () => {
       http: false,
     },
     showLogo: false,
-    logLevel: 'INFO',
+    logLevel: 'error',
   });
   await new Promise((resolve) => {
     server.once('started', resolve);
@@ -83,9 +81,7 @@ const runDeepstream = async () => {
   let clientA;
   let clientB;
   const clientOptions = {
-    maxMessagesPerPacket: 1000,
-    timeBetweenSendingQueuedPackages: 0,
-    recordDeepCopy: false,
+    maxMessagesPerPacket:10
   };
   await new Promise((resolve, reject) => {
     clientA = deepstream('ws://127.0.0.1:5000', clientOptions).login();
@@ -110,28 +106,29 @@ const runDeepstream = async () => {
     });
   });
   const name = uuid.v4();
-  let activeValueA = { value: uuid.v4() };
-  let activeValueB = { value: uuid.v4() };
-  let responseCount = 0;
+  const valueA = { value: uuid.v4() };
+  const valueB = { value: uuid.v4() };
   const recordA = clientA.record.getRecord(name);
   const recordB = clientB.record.getRecord(name);
+  await Promise.all([
+    new Promise((resolve) => recordA.once('ready', resolve)),
+    new Promise((resolve) => recordB.once('ready', resolve))
+  ]);
+  let responseCount = 0;
   recordA.subscribe((value) => {
-    if (value.value === activeValueB.value) {
+    if (value.value === valueB.value) {
       responseCount += 1;
-      activeValueA = { value: uuid.v4() };
-      recordA.set(activeValueA);
+      recordA.set(valueA);
     }
   });
   recordB.subscribe((value) => {
-    if (value.value === activeValueA.value) {
+    if (value.value === valueA.value) {
       responseCount += 1;
-      activeValueB = { value: uuid.v4() };
-      recordB.set(activeValueB);
+      recordB.set(valueB);
     }
   });
-  recordA.set(activeValueA);
+  recordA.set(valueA);
   await new Promise((resolve) => setTimeout(resolve, 10000));
-  console.log(`${responseCount} responses in 10s`);
   await new Promise((resolve) => {
     const currentConnectionState = clientA.getConnectionState();
     if (currentConnectionState === CONSTANTS.CONNECTION_STATE.CLOSED || currentConnectionState === deepstream.CONSTANTS.CONNECTION_STATE.ERROR) {
@@ -164,11 +161,13 @@ const runDeepstream = async () => {
     server.once('stopped', resolve);
     server.stop();
   });
+  console.log(`${responseCount} Deepstream responses in 10s`);
 };
 
 const run = async () => {
   await runBraid();
   await runDeepstream();
+  process.exit(0);
 };
 
 run();

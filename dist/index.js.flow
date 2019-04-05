@@ -318,6 +318,7 @@ class Server extends EventEmitter {
       },
     });
     uwsServer.ws(websocketPattern, options);
+    this.setMaxListeners(0);
   }
 
   emitToClients(name: string, ...args:Array<any>) {
