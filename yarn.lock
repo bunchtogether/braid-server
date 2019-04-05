@@ -7325,9 +7325,9 @@ typedarray@^0.0.6, typedarray@~0.0.5:
   version "15.9.0"
   resolved "https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/131c24fc56346ec76b7270ea2f2a3b1b70c4ac39"
 
-uWebSockets.js@uNetworking/uWebSockets.js#v15.9.0:
+"uWebSockets.js@https://github.com/uNetworking/uWebSockets.js/archive/v15.9.0.tar.gz":
   version "15.9.0"
-  resolved "https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/32749187bfefb94de69f1aa5a8275647c7ccf3aa"
+  resolved "https://github.com/uNetworking/uWebSockets.js/archive/v15.9.0.tar.gz#10f8630fa13053f341d0155591d2917f7f6ecd69"
 
 uglify-js@^3.1.4:
   version "3.5.3"
