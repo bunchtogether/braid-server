@@ -456,6 +456,9 @@ class Server extends EventEmitter {
    * @return {void}
    */
   async handleCredentialsRequest(socketId: number, existingCredentials: Object, clientCredentials: Object) {
+    if (existingCredentials && existingCredentials.client) {
+      this.emit('presence', existingCredentials, false);
+    }
     const credentials = Object.assign({}, existingCredentials, { client: clientCredentials });
     await this.credentialsHandlerPromises.get(socketId);
     let response;
