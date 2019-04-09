@@ -41,7 +41,7 @@ expect.extend({
         received.removeListener('set', handleSet);
         received.removeListener('delete', handleDelete);
         resolve(false);
-      }, 3000);
+      }, 5000);
       received.on('set', handleSet);
       received.on('delete', handleDelete);
     });

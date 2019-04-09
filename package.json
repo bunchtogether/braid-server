@@ -16,7 +16,9 @@
     "start-pre-commit": "git stash -q --keep-index",
     "end-pre-commit": "git add -u && git stash pop -q",
     "documentation": "documentation readme src/index.js --section='API'",
-    "benchmark": "NODE_ENV=production flow-node --prof tests/benchmark.js && node --prof-process $(ls -tr isolate-* | tail -n1) && rm -rf isolate-*"
+    "benchmark": "NODE_ENV=production flow-node --prof tests/benchmark.js && node --prof-process $(ls -tr isolate-* | tail -n1) && rm -rf isolate-*",
+    "malloc-example": "NODE_ENV=test node --experimental-worker tests/malloc-example-spawner.js",
+    "jest-malloc-example": "NODE_ENV=test jest tests/malloc-example.test.js"
   },
   "pre-commit": [
     "lint",
