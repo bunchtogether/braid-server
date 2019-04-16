@@ -799,7 +799,7 @@ class Server extends EventEmitter {
    */
   removeSubscription(socketId       , key       ) {
     this.subscriptions.removeEdge(socketId, key);
-    if (this.subscriptions.getTargets(key).size === 0) {
+    if (this.subscriptions.getSources(key).size === 0) {
       this.peerSubscriptions.delete([this.id, key]);
     }
   }
