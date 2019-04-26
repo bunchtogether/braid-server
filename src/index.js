@@ -37,10 +37,6 @@ const {
   BraidEvent,
 } = require('@bunchtogether/braid-messagepack');
 
-const {
-  OPEN,
-} = require('./constants');
-
 function randomInteger() {
   return crypto.randomBytes(4).readUInt32BE(0, true);
 }
@@ -132,6 +128,11 @@ class Server extends EventEmitter {
     //   Key: key
     //   Value: Timestamp when the key should be deleted
     this.keysForDeletion = new Map();
+
+    // Peer reconnection timeouts
+    //   Key: Peer ID
+    //   Value: TimeoutID
+    this.peerReconnectTimeouts = new Map();
 
     this.id = randomInteger();
 
@@ -256,7 +257,7 @@ class Server extends EventEmitter {
           ip: requestIp(ws, req),
         };
         this.sockets.set(socketId, ws);
-        this.emit(OPEN, socketId);
+        this.emit('open', socketId);
         this.logger.info(`Opened socket with ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId})`);
       },
       message: (ws, data, isBinary) => {
@@ -313,6 +314,7 @@ class Server extends EventEmitter {
         if (credentials && credentials.client) {
           this.emit('presence', credentials, false);
         }
+        this.emit('close', socketId);
         delete ws.id; // eslint-disable-line no-param-reassign
         delete ws.credentials; // eslint-disable-line no-param-reassign
       },
@@ -834,7 +836,7 @@ class Server extends EventEmitter {
       }
     }
     if (peerIdAndRegexStrings.length === 0) {
-      this.logger.error(`Unable to find provider for "${key}"`);
+      this.logger.warn(`Unable to find provider for "${key}"`);
       return;
     }
     peerIdAndRegexStrings.sort((x, y) => (x[0] === y[0] ? (x[1] > y[1] ? 1 : -1) : (x[0] > y[0] ? 1 : -1)));
@@ -983,8 +985,11 @@ class Server extends EventEmitter {
     this.logger.info('Closing');
     this.isClosing = true;
     await this.closePeerConnections();
+    for (const reconnectTimeout of this.peerReconnectTimeouts.values()) {
+      clearTimeout(reconnectTimeout);
+    }
     for (const socket of this.sockets.values()) {
-      socket.end(1000, 'Shutting down');
+      socket.end(1001, 'Shutting down');
     }
     const timeout = Date.now() + 10000;
     while (this.sockets.size > 0 && Date.now() < timeout) {
@@ -1005,32 +1010,43 @@ class Server extends EventEmitter {
    * Connects to a peer
    * @param {string} address Websocket URL of the peer
    * @param {Object} [credentials] Credentials to send during the peer request
-   * @return {Promise<void>}
+   * @param {number} [attempt] Number of previous reconnect attempts
+   * @return {Promise<number>}
    */
-  async connectToPeer(address:string, credentials?: Object) {
+  async connectToPeer(address:string, credentials?: Object, attempt?: number = 0) {
     this.logger.info(`Connecting to peer ${address}`);
     const peerConnection = new PeerConnection(this.id, address, credentials);
-    peerConnection.on('close', () => {
-      this.logger.info(`Connection to ${address} with peer ID ${peerId} closed`);
-      this.peerConnections.delete(peerId);
-      this.updatePeers();
-      this.prunePeers();
-    });
     const messageQueue = [];
     const queueMessages = (message:any) => {
       messageQueue.push(message);
     };
     peerConnection.on('message', queueMessages);
     const peerId = await peerConnection.open();
+    const start = Date.now();
+    peerConnection.on('close', () => {
+      const shouldReconnect = this.peerConnections.has(peerId);
+      this.logger.info(`Connection to ${address} with peer ID ${peerId} closed`);
+      this.peerConnections.delete(peerId);
+      this.updatePeers();
+      this.prunePeers();
+      if (!shouldReconnect) {
+        return;
+      }
+      if (Date.now() < start + 120000) {
+        this.reconnectToPeer(peerId, attempt + 1, address, credentials);
+      } else {
+        this.reconnectToPeer(peerId, 1, address, credentials);
+      }
+    });
     if (this.peerConnections.has(peerId)) {
       await peerConnection.close();
-      this.logger.error(`Closing connection to ${address}, connection to peer ${peerId} already exists`);
-      throw new Error(`Connection to peer ${peerId} already exists`);
+      this.logger.warn(`Closing connection to ${address}, connection to peer ${peerId} already exists`);
+      return peerId;
     }
     if (this.peerSockets.hasTarget(peerId)) {
       await peerConnection.close();
-      this.logger.info(`Closing connection to ${address}, socket with peer ${peerId} already exists`);
-      throw new Error(`Socket to peer ${peerId} already exists`);
+      this.logger.warn(`Closing connection to ${address}, socket with peer ${peerId} already exists`);
+      return peerId;
     }
     this.peerConnections.set(peerId, peerConnection);
     peerConnection.removeListener('message', queueMessages);
@@ -1043,6 +1059,61 @@ class Server extends EventEmitter {
     this.updatePeers();
     this.logger.info(`Connected to ${address} with peer ID ${peerId}`);
     await this.syncPeerConnection(peerId);
+    return peerId;
+  }
+
+  /**
+   * Disconnect from a peer
+   * @param {number} peerId Peer ID
+   * @return {Promise<void>}
+   */
+  async disconnectFromPeer(peerId: number) {
+    const peerConnection = this.peerConnections.get(peerId);
+    this.peerConnections.delete(peerId);
+    const peerReconnectTimeout = this.peerReconnectTimeouts.get(peerId);
+    clearTimeout(peerReconnectTimeout);
+    if (peerConnection) {
+      await peerConnection.close();
+    }
+    for (const socketId of this.peerSockets.getSources(peerId)) {
+      const ws = this.sockets.get(socketId);
+      if (ws) {
+        ws.close();
+      }
+    }
+  }
+
+  /**
+   * Send a peer sync message to an (outgoing) peer connection
+   * @param {number} peerId Peer ID to reconnect to
+   * @param {number} [attempt] Number of previous reconnect attempts
+   * @param {string} address Websocket URL of the peer
+   * @param {Object} [credentials] Credentials to send during the peer reconnect request
+   * @return {void}
+   */
+  reconnectToPeer(peerId:number, attempt: number, address:string, credentials?: Object) {
+    if (this.isClosing) {
+      return;
+    }
+    let peerReconnectTimeout = this.peerReconnectTimeouts.get(peerId);
+    clearTimeout(peerReconnectTimeout);
+    const duration = attempt > 8 ? 60000 + Math.round(Math.random() * 10000) : attempt * attempt * 1000;
+    this.logger.warn(`Reconnect attempt ${attempt} in ${Math.round(duration / 100) / 10} seconds`);
+    peerReconnectTimeout = setTimeout(async () => {
+      this.peerReconnectTimeouts.delete(peerId);
+      try {
+        await this.connectToPeer(address, credentials, attempt + 1);
+      } catch (error) {
+        if (error.stack) {
+          this.logger.error(`Error reconnecting to peer ${peerId} at ${address}:`);
+          error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+        } else {
+          this.logger.error(`Error reconnecting to peer ${peerId} at ${address}`);
+        }
+        this.reconnectToPeer(peerId, attempt + 1, address, credentials);
+      }
+    }, duration);
+    this.peerReconnectTimeouts.set(peerId, peerReconnectTimeout);
   }
 
   /**
@@ -1169,6 +1240,15 @@ class Server extends EventEmitter {
     }
   }
 
+  /**
+   * Check if peer exists
+   * @param {number} peerId Peer ID
+   * @return {boolean}
+   */
+  hasPeer(peerId: number) {
+    return this.peerSockets.hasTarget(peerId) || this.peerConnections.has(peerId);
+  }
+
   isClosing: boolean;
   id: number;
   flushInterval: IntervalID;
@@ -1193,6 +1273,7 @@ class Server extends EventEmitter {
   subscribeRequestHandler: (key:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   eventSubscribeRequestHandler: (name:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   keysForDeletion:Map<string, number>;
+  peerReconnectTimeouts:Map<number, TimeoutID>;
   logger: {
     debug: (string) => void,
     info: (string) => void,

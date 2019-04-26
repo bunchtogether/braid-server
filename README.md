@@ -72,12 +72,18 @@ See also:
     -   [close](#close)
     -   [connectToPeer](#connecttopeer)
         -   [Parameters](#parameters-25)
-    -   [handlePeerSync](#handlepeersync)
+    -   [disconnectFromPeer](#disconnectfrompeer)
         -   [Parameters](#parameters-26)
-    -   [syncPeerConnection](#syncpeerconnection)
+    -   [reconnectToPeer](#reconnecttopeer)
         -   [Parameters](#parameters-27)
-    -   [syncPeerSocket](#syncpeersocket)
+    -   [handlePeerSync](#handlepeersync)
         -   [Parameters](#parameters-28)
+    -   [syncPeerConnection](#syncpeerconnection)
+        -   [Parameters](#parameters-29)
+    -   [syncPeerSocket](#syncpeersocket)
+        -   [Parameters](#parameters-30)
+    -   [hasPeer](#haspeer)
+        -   [Parameters](#parameters-31)
 
 ### Server
 
@@ -388,8 +394,32 @@ Connects to a peer
 
 -   `address` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Websocket URL of the peer
 -   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)?** Credentials to send during the peer request
+-   `attempt` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)?** Number of previous reconnect attempts (optional, default `0`)
+
+Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)>** 
+
+#### disconnectFromPeer
+
+Disconnect from a peer
+
+##### Parameters
+
+-   `peerId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Peer ID
 
 Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;void>** 
+
+#### reconnectToPeer
+
+Send a peer sync message to an (outgoing) peer connection
+
+##### Parameters
+
+-   `peerId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Peer ID to reconnect to
+-   `attempt` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)?** Number of previous reconnect attempts
+-   `address` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Websocket URL of the peer
+-   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)?** Credentials to send during the peer reconnect request
+
+Returns **void** 
 
 #### handlePeerSync
 
@@ -422,3 +452,13 @@ Send a peer sync message to an (incoming) peer socket
 -   `socketID` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of peer to send sync message to
 
 Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;void>** 
+
+#### hasPeer
+
+Check if peer exists
+
+##### Parameters
+
+-   `peerId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Peer ID
+
+Returns **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** 

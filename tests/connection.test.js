@@ -5,10 +5,6 @@ const { isEqual } = require('lodash');
 const Client = require('@bunchtogether/braid-client');
 const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');
-const {
-  OPEN,
-  ERROR,
-} = require('../src/constants');
 
 const port = 10000 + Math.round(Math.random() * 10000);
 
@@ -38,8 +34,8 @@ describe('Connection', () => {
 
   test('Should open the connection', async () => {
     const openPromise = new Promise((resolve, reject) => {
-      server.once(OPEN, resolve);
-      server.once(ERROR, reject);
+      server.once('open', resolve);
+      server.once('error', reject);
     });
     await client.open(`ws://localhost:${port}`);
     await openPromise;
