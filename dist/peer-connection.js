@@ -43,16 +43,22 @@ class PeerConnection extends EventEmitter {
   }
 
   async open() {
+    let heartbeatInterval;
+
     const ws = new WS(this.address);
 
     ws.on('open', () => {
       this.emit('open');
       this.ws = ws;
+      heartbeatInterval = setInterval(() => {
+        ws.send(new Uint8Array([0]));
+      }, 5000);
     });
 
     ws.on('close', (code        , reason       ) => {
       delete this.ws;
       this.emit('close', code, reason);
+      clearInterval(heartbeatInterval);
     });
 
     ws.on('message', (data) => {
