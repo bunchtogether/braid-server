@@ -1,7 +1,5 @@
 // @flow
 
-// const uuid = require('uuid');
-// const Client = require('@bunchtogether/braid-client');
 const expect = require('expect');
 const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');

@@ -15,10 +15,12 @@ const {
 
 class PeerError extends Error {
   code: number;
-  constructor(message:string, code:number) {
+  peerId: number | void;
+  constructor(message:string, code:number, peerId?: number) {
     super(message);
     this.name = 'PeerError';
     this.code = code;
+    this.peerId = peerId;
   }
 }
 
@@ -137,7 +139,7 @@ class PeerConnection extends EventEmitter {
         if (success) {
           resolve(id);
         } else {
-          reject(new PeerError(message, code));
+          reject(new PeerError(message, code, id));
         }
       };
       const timeout = setTimeout(() => {

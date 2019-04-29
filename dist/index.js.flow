@@ -511,8 +511,8 @@ class Server extends EventEmitter {
         this.logger.error(`Cannot respond to peer request from socket ID ${socketId}, socket does not exist`);
         return;
       }
-      this.logger.error(`Peer request from ${wsA.credentials && wsA.credentials.ip ? wsA.credentials.ip : 'with unknown IP'} (${socketId}) rejected, connection to peer ${peerId} already exists`);
-      const unencoded = new PeerResponse({ success: false, code: 400, message: `Connection to peer ${peerId} already exists` });
+      this.logger.warn(`Peer request from ${wsA.credentials && wsA.credentials.ip ? wsA.credentials.ip : 'with unknown IP'} (${socketId}) rejected, connection to peer ${peerId} already exists`);
+      const unencoded = new PeerResponse({ id: this.id, success: false, code: 801, message: `Connection to peer ${peerId} already exists` });
       wsA.send(getArrayBuffer(encode(unencoded)), true, false);
       return;
     }
@@ -522,8 +522,8 @@ class Server extends EventEmitter {
         this.logger.error(`Cannot respond to peer request from socket ID ${socketId}, socket does not exist`);
         return;
       }
-      this.logger.error(`Peer request from ${wsA.credentials && wsA.credentials.ip ? wsA.credentials.ip : 'with unknown IP'} (${socketId}) rejected, connection to peer ${peerId} already exists`);
-      const unencoded = new PeerResponse({ success: false, code: 400, message: `Socket to peer ${peerId} already exists` });
+      this.logger.warn(`Peer request from ${wsA.credentials && wsA.credentials.ip ? wsA.credentials.ip : 'with unknown IP'} (${socketId}) rejected, connection to peer ${peerId} already exists`);
+      const unencoded = new PeerResponse({ id: this.id, success: false, code: 802, message: `Socket to peer ${peerId} already exists` });
       wsA.send(getArrayBuffer(encode(unencoded)), true, false);
       return;
     }
@@ -1021,8 +1021,40 @@ class Server extends EventEmitter {
       messageQueue.push(message);
     };
     peerConnection.on('message', queueMessages);
-    const peerId = await peerConnection.open();
+    let peerId;
+    try {
+      peerId = await peerConnection.open();
+    } catch (error) {
+      if (error.name === 'PeerError' && error.code === 801) {
+        const pId = error.peerId;
+        if (pId) {
+          this.logger.warn(`Socket to peer ${pId} at ${address} already exists`);
+          return pId;
+        }
+      }
+      if (error.name === 'PeerError' && error.code === 802) {
+        const pId = error.peerId;
+        if (pId) {
+          this.logger.warn(`Connection to peer ${pId} at ${address} already exists`);
+          return pId;
+        }
+      }
+      throw error;
+    }
+    if (!peerId) {
+      throw new Error(`Did not receive peer ID when connecting to ${address}`);
+    }
     const start = Date.now();
+    if (this.peerConnections.has(peerId)) {
+      await peerConnection.close();
+      this.logger.warn(`Closing connection to ${address}, connection to peer ${peerId} already exists`);
+      return peerId;
+    }
+    if (this.peerSockets.hasTarget(peerId)) {
+      await peerConnection.close();
+      this.logger.warn(`Closing connection to ${address}, socket with peer ${peerId} already exists`);
+      return peerId;
+    }
     peerConnection.on('close', () => {
       const shouldReconnect = this.peerConnections.has(peerId);
       this.logger.info(`Connection to ${address} with peer ID ${peerId} closed`);
@@ -1038,16 +1070,6 @@ class Server extends EventEmitter {
         this.reconnectToPeer(peerId, 1, address, credentials);
       }
     });
-    if (this.peerConnections.has(peerId)) {
-      await peerConnection.close();
-      this.logger.warn(`Closing connection to ${address}, connection to peer ${peerId} already exists`);
-      return peerId;
-    }
-    if (this.peerSockets.hasTarget(peerId)) {
-      await peerConnection.close();
-      this.logger.warn(`Closing connection to ${address}, socket with peer ${peerId} already exists`);
-      return peerId;
-    }
     this.peerConnections.set(peerId, peerConnection);
     peerConnection.removeListener('message', queueMessages);
     peerConnection.on('message', (message:any) => {
@@ -1104,6 +1126,14 @@ class Server extends EventEmitter {
       try {
         await this.connectToPeer(address, credentials, attempt + 1);
       } catch (error) {
+        if (error.name === 'PeerError' && error.code === 801) {
+          this.logger.warn(`Socket to peer ${peerId} at ${address} already exists`);
+          return;
+        }
+        if (error.name === 'PeerError' && error.code === 802) {
+          this.logger.warn(`Connection to peer ${peerId} at ${address} already exists`);
+          return;
+        }
         if (error.stack) {
           this.logger.error(`Error reconnecting to peer ${peerId} at ${address}:`);
           error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
