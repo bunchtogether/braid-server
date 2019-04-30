@@ -87,8 +87,11 @@ describe(`${count} peers in a ring with a provider`, () => {
         reject(new Error('Timeout when waiting for provide'));
       }, 10000);
       const handler = (k, active) => {
+        if (k !== key) {
+          return;
+        }
         clearTimeout(timeout);
-        if (k === key && active) {
+        if (active) {
           serverA.data.set(key, valueA);
           resolve();
         } else {
@@ -144,8 +147,11 @@ describe(`${count} peers in a ring with a provider`, () => {
         reject(new Error('Timeout when waiting for provide'));
       }, 10000);
       const handler = (k, active) => {
+        if (k !== key) {
+          return;
+        }
         clearTimeout(timeout);
-        if (k === key && active) {
+        if (active) {
           serverB.data.set(key, valueB);
           resolve();
         } else {

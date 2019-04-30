@@ -244,7 +244,17 @@ class Server extends EventEmitter {
       }
     });
     this.providers.on('set', (peerId:number, regexStrings:Array<string>) => {
-      this.providerRegexes.set(peerId, regexStrings.map((regexString) => [regexString, new RegExp(regexString)]));
+      const regexPairs = regexStrings.map((regexString) => [regexString, new RegExp(regexString)]);
+      this.providerRegexes.set(peerId, regexPairs);
+      const keysWithoutProviders = [...this.peerSubscriptionMap.keys()].filter((key) => !this.activeProviders.has(key));
+      for (const regexPair of regexPairs) {
+        const regex = regexPair[1];
+        for (const key of keysWithoutProviders) {
+          if (regex.test(key)) {
+            this.assignProvider(key);
+          }
+        }
+      }
     });
     this.providers.on('delete', (peerId:number) => {
       this.providerRegexes.delete(peerId);
@@ -1295,7 +1305,7 @@ class Server extends EventEmitter {
   provideCallbacks:Map<string, (string, boolean) => void|Promise<void>>;
   activeProviders:ObservedRemoveMap<string, [number, string]>;
   peerSubscriptions:ObservedRemoveSet<[number, string]>;
-  peerSubscriptionMap:Map<number, Set<number>>;
+  peerSubscriptionMap:Map<string, Set<number>>;
   providerRegexes: Map<number, Array<[string, RegExp]>>;
   credentialsHandlerPromises: Map<number, Promise<void>>;
   peerRequestHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;

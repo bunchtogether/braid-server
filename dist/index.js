@@ -244,7 +244,17 @@ class Server extends EventEmitter {
       }
     });
     this.providers.on('set', (peerId       , regexStrings              ) => {
-      this.providerRegexes.set(peerId, regexStrings.map((regexString) => [regexString, new RegExp(regexString)]));
+      const regexPairs = regexStrings.map((regexString) => [regexString, new RegExp(regexString)]);
+      this.providerRegexes.set(peerId, regexPairs);
+      const keysWithoutProviders = [...this.peerSubscriptionMap.keys()].filter((key) => !this.activeProviders.has(key));
+      for (const regexPair of regexPairs) {
+        const regex = regexPair[1];
+        for (const key of keysWithoutProviders) {
+          if (regex.test(key)) {
+            this.assignProvider(key);
+          }
+        }
+      }
     });
     this.providers.on('delete', (peerId       ) => {
       this.providerRegexes.delete(peerId);
