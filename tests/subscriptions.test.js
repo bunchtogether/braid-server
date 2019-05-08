@@ -92,6 +92,59 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
     }
   });
 
+  test('Should set a subscription value to undefined', async () => {
+    const key = uuid.v4();
+    const initialValue = uuid.v4();
+    const [serverA] = getRandomServers(1);
+    serverA.data.set(key, initialValue);
+    for (const { server } of peers) {
+      await expect(server.data).toReceiveProperty(key, initialValue);
+    }
+    const providePromise = new Promise((resolve, reject) => { // eslint-disable-line no-loop-func
+      let stage = 1;
+      const timeout = setTimeout(() => {
+        serverA.unprovide('.*');
+        reject(new Error('Timeout when waiting for key'));
+      }, 1000);
+      const provideHandler = (k, active) => {
+        if (k !== key) {
+          return;
+        }
+        if (active && stage === 1) {
+          serverA.data.set(k, undefined);
+          stage = 2;
+        } else if (!active && stage === 2) {
+          stage = 3;
+          serverA.unprovide('.*');
+          clearTimeout(timeout);
+          resolve();
+        } else {
+          clearTimeout(timeout);
+          reject(`Unknown provide state for key: ${k}, active: ${active ? 'TRUE' : 'FALSE'}, stage: ${stage}`);
+        }
+      };
+      serverA.provide('.*', provideHandler);
+    });
+    await new Promise((resolve, reject) => { // eslint-disable-line no-loop-func
+      const timeout = setTimeout(() => {
+        client.unsubscribe(key);
+        client.data.removeListener('set', handler);
+        reject(new Error('Timeout when waiting for key'));
+      }, 1000);
+      const handler = (k, v) => {
+        if (k === key && typeof v === 'undefined') {
+          clearTimeout(timeout);
+          client.unsubscribe(key);
+          client.data.removeListener('set', handler);
+          resolve();
+        }
+      };
+      client.data.on('set', handler);
+      client.subscribe(key);
+    });
+    await providePromise;
+  });
+
   test('Should close gracefully', async () => {
     await client.close();
     await Promise.all(peers.map(({ server }) => server.close()));
