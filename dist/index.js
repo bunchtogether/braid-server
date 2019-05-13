@@ -797,7 +797,7 @@ class Server extends EventEmitter {
     this.peerSubscriptions.add([this.id, key]);
     const pair = this.data.pairs.get(key);
     if (pair) {
-      const insertionQueue = [[key, pair]];
+      const insertionQueue = typeof pair[1] === 'undefined' ? [[key, [pair[0]]]] : [[key, pair]];
       ws.send(getArrayBuffer(encode(new DataDump([insertionQueue, []]))), true, false);
     }
     this.assignProvider(key);

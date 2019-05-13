@@ -932,26 +932,19 @@
     lodash "^4.17.11"
     to-fast-properties "^2.0.0"
 
-"@bunchtogether/braid-client@^1.1.2":
-  version "1.1.3"
-  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-client/-/braid-client-1.1.3.tgz#d5e1afa680f6c0282d5a8249e032fd7577955206"
-  integrity sha512-G06Rwy9kPJP+CTrOtkVb2/WnQTWFvfonDqB3wgTXsa0eyb4quXmyMbUck8mmRuycSxhxJc+VtjimD7cd6a6KOQ==
+"@bunchtogether/braid-client@^1.1.10":
+  version "1.1.10"
+  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-client/-/braid-client-1.1.10.tgz#82c4e8976c99f843e81e02d6f318d7b603c44f5d"
+  integrity sha512-9IgzSLywkaaol1iQ6OM6BxDdFGzKxgMcXP1q7ZJaize4SarmEoY8kSokqaNqGKqAAh87KyYL42YNsF5SgXYspg==
   dependencies:
-    "@bunchtogether/braid-messagepack" "1.0.10"
+    "@bunchtogether/braid-messagepack" "1.1.10"
     isomorphic-ws "^4.0.1"
-    observed-remove "^2.2.3"
+    observed-remove "^2.2.5"
 
-"@bunchtogether/braid-messagepack@1.0.10":
-  version "1.0.10"
-  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-messagepack/-/braid-messagepack-1.0.10.tgz#84900531edba2de476659702bad0800c122b1ac5"
-  integrity sha512-9CvNeOhBejCA7f8wAVsP50GndFGJaUSaMDZxEkcrpTiVJaf4962VuFWoR/ghnKTSp+ea/DC/SbhVdioI5E5cEQ==
-  dependencies:
-    msgpack5 "^4.2.1"
-
-"@bunchtogether/braid-messagepack@1.0.12":
-  version "1.0.12"
-  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-messagepack/-/braid-messagepack-1.0.12.tgz#b2a11923d88275a49e66dde8effb336f50e27169"
-  integrity sha512-at88VNdW6C6cIHV0rgiyjPdZaaJoanapC2+RVNsPFsNo2JkOEWVgucZDWgngccDVMg2otYafgQl6Axlcc1jOmA==
+"@bunchtogether/braid-messagepack@1.1.10", "@bunchtogether/braid-messagepack@^1.1.10":
+  version "1.1.10"
+  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-messagepack/-/braid-messagepack-1.1.10.tgz#628d6f21675df9325c8c524854449c378b66eae0"
+  integrity sha512-jQvWqmPVOrA/whs2dKwVTj2Ce83BNY0NdDusaEgWDCR/54tLdUBRyWIGD8oYY1qJieqrElP2vICtKDqOYoS58g==
   dependencies:
     msgpack5 "^4.2.1"
 
@@ -5423,7 +5416,7 @@ object.pick@^1.3.0:
   dependencies:
     isobject "^3.0.1"
 
-observed-remove@2.2.5, observed-remove@^2.2.3:
+observed-remove@2.2.5, observed-remove@^2.2.5:
   version "2.2.5"
   resolved "https://registry.yarnpkg.com/observed-remove/-/observed-remove-2.2.5.tgz#9674536f626e934c49cd56ea3da8ef31dc452b16"
   integrity sha512-Qg3YhHiKkXidyjO+G7ApcD3M1ypk1ryCjl2fOpBdGU6RS5PvjCPQuWx1d+2rMjP0oqZ7xysrgy8wv3K5f2w/CA==

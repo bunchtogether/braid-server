@@ -51,7 +51,9 @@ class PeerConnection extends EventEmitter {
       this.emit('open');
       this.ws = ws;
       heartbeatInterval = setInterval(() => {
-        ws.send(new Uint8Array([0]));
+        if (ws.readyState === 1) {
+          ws.send(new Uint8Array([0]));
+        }
       }, 5000);
     });
 
