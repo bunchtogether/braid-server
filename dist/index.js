@@ -219,7 +219,9 @@ class Server extends EventEmitter {
           this.unprovide(regexString);
           return;
         }
-        callback(key, true);
+        if (!previousPeerIdAndRegexString || previousPeerIdAndRegexString[0] !== this.id) {
+          callback(key, true);
+        }
       } else if (previousPeerIdAndRegexString) {
         const [previousPeerId, previousRegexString] = previousPeerIdAndRegexString;
         if (previousPeerId !== peerId) {
