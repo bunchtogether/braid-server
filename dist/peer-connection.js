@@ -47,6 +47,10 @@ class PeerConnection extends EventEmitter {
 
     const ws = new WS(this.address);
 
+    ws.on('error', () => {
+      this.emit('error', new Error(`Websocket error when connecting to ${this.address}, check the 'close' event for additional details`));
+    });
+
     ws.on('open', () => {
       this.emit('open');
       this.ws = ws;
@@ -79,9 +83,9 @@ class PeerConnection extends EventEmitter {
         this.removeListener('error', onError);
         resolve();
       };
-      const onError = (event       ) => {
+      const onError = (error       ) => {
         this.removeListener('open', onOpen);
-        reject(event);
+        reject(error);
       };
       this.once('error', onError);
       this.once('open', onOpen);
@@ -102,9 +106,9 @@ class PeerConnection extends EventEmitter {
         this.removeListener('error', onError);
         resolve();
       };
-      const onError = (event       ) => {
+      const onError = (error       ) => {
         this.removeListener('close', onClose);
-        reject(event);
+        reject(error);
       };
       this.once('error', onError);
       this.once('close', onClose);

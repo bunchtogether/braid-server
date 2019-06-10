@@ -1,6 +1,6 @@
 {
   "name": "@bunchtogether/braid-server",
-  "version": "1.1.12",
+  "version": "1.1.13",
   "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
@@ -39,7 +39,7 @@
     }
   },
   "devDependencies": {
-    "@bunchtogether/braid-client": "^1.1.12",
+    "@bunchtogether/braid-client": "^1.1.13",
     "babel-eslint": "^9.0.0",
     "codecov": "^3.3.0",
     "cross-env": "^5.2.0",
