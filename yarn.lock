@@ -932,10 +932,10 @@
     lodash "^4.17.11"
     to-fast-properties "^2.0.0"
 
-"@bunchtogether/braid-client@^1.1.10":
-  version "1.1.10"
-  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-client/-/braid-client-1.1.10.tgz#82c4e8976c99f843e81e02d6f318d7b603c44f5d"
-  integrity sha512-9IgzSLywkaaol1iQ6OM6BxDdFGzKxgMcXP1q7ZJaize4SarmEoY8kSokqaNqGKqAAh87KyYL42YNsF5SgXYspg==
+"@bunchtogether/braid-client@^1.1.12":
+  version "1.1.12"
+  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-client/-/braid-client-1.1.12.tgz#162f8e6076bb86b1a0ea66d44640bab75e7ea334"
+  integrity sha512-HbRjjQh58jKv/e538/87eVtkTacuxoCOJpFu1u6iSccQ1qGg8fTfo9vkCHph8z1a/ozSelgIw+KZgxDftyJnCQ==
   dependencies:
     "@bunchtogether/braid-messagepack" "1.1.10"
     isomorphic-ws "^4.0.1"
@@ -7348,9 +7348,9 @@ typedarray@^0.0.6, typedarray@~0.0.5:
   version "15.9.0"
   resolved "https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/32749187bfefb94de69f1aa5a8275647c7ccf3aa"
 
-"uWebSockets.js@https://github.com/uNetworking/uWebSockets.js/archive/v15.10.0.tar.gz":
-  version "15.10.0"
-  resolved "https://github.com/uNetworking/uWebSockets.js/archive/v15.10.0.tar.gz#7aef860514d1e073ff6a02655fac23237b1a98ba"
+"uWebSockets.js@https://github.com/uNetworking/uWebSockets.js/archive/v15.11.0.tar.gz":
+  version "15.11.0"
+  resolved "https://github.com/uNetworking/uWebSockets.js/archive/v15.11.0.tar.gz#692ad7a65863fb9f39d17a657ba13764a92f1016"
 
 uglify-js@^3.1.4:
   version "3.5.11"

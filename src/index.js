@@ -865,8 +865,8 @@ class Server extends EventEmitter {
   provide(regexString:string, callback: (key:string, active:boolean) => void|Promise<void>) {
     const regexStrings = new Set(this.providers.get(this.id));
     regexStrings.add(regexString);
-    this.providers.set(this.id, [...regexStrings]);
     this.provideCallbacks.set(regexString, callback);
+    this.providers.set(this.id, [...regexStrings]);
   }
 
   /**

@@ -38,7 +38,7 @@ describe(`${count} peers in a ring with a provider`, () => {
     }
     await Promise.all(peerPromises);
     client = new Client();
-    await client.open(`ws://localhost:${startPort + Math.floor(Math.random() * count)}`, {});
+    await client.open(`ws://localhost:${startPort + 2 + Math.floor(Math.random() * count - 2)}`, {});
   });
 
   test('Should provide values', async () => {
@@ -81,7 +81,8 @@ describe(`${count} peers in a ring with a provider`, () => {
     const key = uuid.v4();
     const valueA = uuid.v4();
     const valueB = uuid.v4();
-    const [serverA, serverB] = getRandomServers(2);
+    const serverA = peers[0].server;
+    const serverB = peers[1].server;
     const providePromiseA = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Timeout when waiting for provide'));

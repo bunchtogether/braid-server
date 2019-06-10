@@ -1,6 +1,6 @@
 {
   "name": "@bunchtogether/braid-server",
-  "version": "1.1.11",
+  "version": "1.1.12",
   "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
@@ -39,7 +39,7 @@
     }
   },
   "devDependencies": {
-    "@bunchtogether/braid-client": "^1.1.11",
+    "@bunchtogether/braid-client": "^1.1.12",
     "babel-eslint": "^9.0.0",
     "codecov": "^3.3.0",
     "cross-env": "^5.2.0",
@@ -63,7 +63,7 @@
     "jest-diff": "^24.7.0",
     "jest-flow-transform": "^1.0.1",
     "pre-commit": "^1.2.2",
-    "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v15.10.0.tar.gz"
+    "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v15.11.0.tar.gz"
   },
   "dependencies": {
     "@bunchtogether/braid-messagepack": "^1.1.10",
