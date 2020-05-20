@@ -119,7 +119,7 @@ Set the credentials handler. The handler evaluates and modifies credentials prov
 
 ##### Parameters
 
--   `func` **function (credentials: [Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)): [Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;{success: [boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean), code: [number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number), message: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)}>** 
+-   `func`  
 
 Returns **void** 
 
@@ -129,7 +129,7 @@ Set the peer request handler. Approves or denies peer request handlers.
 
 ##### Parameters
 
--   `func` **function (credentials: [Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)): [Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;{success: [boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean), code: [number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number), message: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)}>** 
+-   `func`  
 
 Returns **void** 
 
@@ -139,7 +139,7 @@ Set the subscribe request handler. Approves or denies subscribe requests.
 
 ##### Parameters
 
--   `func` **function (key: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), credentials: [Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)): [Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;{success: [boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean), code: [number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number), message: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)}>** 
+-   `func`  
 
 Returns **void** 
 
@@ -149,7 +149,7 @@ Set the event subscribe request handler. Approves or denies event subscribe requ
 
 ##### Parameters
 
--   `func` **function (name: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), credentials: [Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)): [Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;{success: [boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean), code: [number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number), message: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)}>** 
+-   `func`  
 
 Returns **void** 
 
@@ -217,9 +217,9 @@ Publish event to subscribers.
 
 ##### Parameters
 
--   `name` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** 
--   `args` **[Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>** 
--   `id` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** 
+-   `name`  
+-   `args`  
+-   `id`  
 -   `Event` **BraidEvent** object
 
 Returns **void** 
@@ -230,7 +230,7 @@ Publish data to subscribers.
 
 ##### Parameters
 
--   `queue` **\[[Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>, [Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>]** 
+-   `queue`  
 -   `Data` **\[[Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>, [Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array)&lt;any>]** dump queue.
 
 Returns **void** 
@@ -316,7 +316,7 @@ Indicate this server instance is providing for keys matching the regex string.
 ##### Parameters
 
 -   `regexString` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Regex to match keys with
--   `callback` **function (key: [string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String), active: [boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)): (void | [Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;void>)** 
+-   `callback`  
 
 Returns **void** 
 
@@ -447,7 +447,7 @@ Send a peer sync message to an (incoming) peer socket
 
 ##### Parameters
 
--   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** 
+-   `socketId`  
 -   `peerId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Peer ID to send sync message to
 -   `socketID` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of peer to send sync message to
 
