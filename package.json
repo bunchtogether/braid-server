@@ -1,6 +1,6 @@
 {
   "name": "@bunchtogether/braid-server",
-  "version": "1.1.16",
+  "version": "1.1.17",
   "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
@@ -13,7 +13,7 @@
     "lint:js": "eslint -c ./.eslintrc --no-eslintrc --fix --cache .",
     "lint:flow": "flow --show-all-errors",
     "coverage": "codecov",
-    "documentation": "documentation readme src/index.js --section='API'",
+    "documentation": "documentation readme dist/index.js --section='API'",
     "benchmark": "NODE_ENV=production flow-node --prof tests/benchmark.js && node --prof-process $(ls -tr isolate-* | tail -n1) && rm -rf isolate-*",
     "malloc-example": "NODE_ENV=test node --experimental-worker tests/malloc-example-spawner.js",
     "jest-malloc-example": "NODE_ENV=test jest tests/malloc-example.test.js"
@@ -29,55 +29,52 @@
     "collectCoverageFrom": [
       "src/*.js",
       "src/**/*.js"
-    ],
-    "transform": {
-      "^.+\\.js(?:\\.flow)?$": "jest-flow-transform"
-    }
+    ]
   },
   "devDependencies": {
-    "@babel/core": "^7.9.0",
+    "@babel/core": "^7.9.6",
     "@babel/plugin-proposal-class-properties": "^7.8.3",
     "@babel/plugin-transform-flow-strip-types": "^7.9.0",
-    "@bunchtogether/braid-client": "1.1.15",
+    "@bunchtogether/braid-client": "1.1.17",
     "babel-eslint": "^10.1.0",
-    "codecov": "^3.6.5",
+    "codecov": "^3.7.0",
     "cross-env": "^7.0.2",
     "deepstream.io": "3.2.5",
     "deepstream.io-client-js": "2.3.4",
-    "documentation": "^12.3.0",
-    "eslint": "^6.8.0",
+    "documentation": "^13.0.0",
+    "eslint": "^7.0.0",
     "eslint-config-bunchtogether": "^1.1.6",
-    "eslint-plugin-flowtype": "^4.7.0",
-    "eslint-plugin-flowtype-errors": "^4.2.0",
+    "eslint-plugin-flowtype": "^5.1.0",
+    "eslint-plugin-flowtype-errors": "^4.3.0",
     "eslint-plugin-import": "^2.20.2",
-    "eslint-plugin-jest": "^23.8.2",
+    "eslint-plugin-jest": "^23.13.1",
     "eslint-plugin-jsx-a11y": "^6.2.3",
-    "eslint-plugin-react": "^7.19.0",
-    "expect": "^25.3.0",
-    "flow-bin": "^0.122.0",
+    "eslint-plugin-react": "^7.20.0",
+    "expect": "^26.0.1",
+    "flow-bin": "^0.125.1",
     "flow-copy-source": "^2.0.9",
-    "flow-remove-types": "^2.122.0",
+    "flow-remove-types": "^2.125.1",
     "flow-typed": "^3.1.0",
     "husky": "^4.2.5",
-    "jest": "^25.3.0",
-    "jest-diff": "^25.3.0",
-    "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v15.11.0.tar.gz"
+    "jest": "^26.0.1",
+    "jest-diff": "^26.0.1",
+    "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v17.6.0.tar.gz"
   },
   "dependencies": {
-    "@bunchtogether/braid-messagepack": "^1.1.10",
+    "@bunchtogether/braid-messagepack": "^1.1.17",
     "@bunchtogether/hash-object": "^1.0.3",
     "colors": "^1.4.0",
     "directed-graph-map": "1.2.6",
-    "farmhash": "^3.0.0",
+    "farmhash": "^3.1.0",
     "ip-address": "^6.3.0",
     "lodash": "^4.17.15",
     "logform": "^2.1.2",
     "lru-cache": "^5.1.1",
     "nanomatch": "^1.2.13",
     "observed-remove": "2.2.26",
-    "p-queue": "^6.3.0",
-    "uuid": "^7.0.3",
+    "p-queue": "^6.4.0",
+    "uuid": "^8.1.0",
     "winston": "^3.2.1",
-    "ws": "^7.2.3"
+    "ws": "^7.3.0"
   }
 }

@@ -1291,32 +1291,32 @@ class Server extends EventEmitter {
     return this.peerSockets.hasTarget(peerId) || this.peerConnections.has(peerId);
   }
 
-  isClosing: boolean;
-  id: number;
-  flushInterval: IntervalID;
-  keyFlushInterval: IntervalID;
-  messageHashes: LruCache<string, boolean>;
-  eventSubscriptions: DirectedGraphMap<number, string>;
-  subscriptions: DirectedGraphMap<number, string>;
-  peerSockets:DirectedGraphMap<number, number>;
-  peerConnections:Map<number, PeerConnection>;
-  sockets:Map<number, UWSWebSocket>;
-  data:ObservedRemoveMap<string, any>;
-  peers:ObservedRemoveMap<number, Array<number>>;
-  providers:ObservedRemoveMap<number, Array<string>>;
-  provideCallbacks:Map<string, (string, boolean) => void|Promise<void>>;
-  activeProviders:ObservedRemoveMap<string, [number, string]>;
-  peerSubscriptions:ObservedRemoveSet<[number, string]>;
-  peerSubscriptionMap:Map<string, Set<number>>;
-  providerRegexes: Map<number, Array<[string, RegExp]>>;
-  credentialsHandlerPromises: Map<number, Promise<void>>;
-  peerRequestHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
-  credentialsHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
-  subscribeRequestHandler: (key:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
-  eventSubscribeRequestHandler: (name:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
-  keysForDeletion:Map<string, number>;
-  peerReconnectTimeouts:Map<number, TimeoutID>;
-  logger: {
+  declare isClosing: boolean;
+  declare id: number;
+  declare flushInterval: IntervalID;
+  declare keyFlushInterval: IntervalID;
+  declare messageHashes: LruCache<string, boolean>;
+  declare eventSubscriptions: DirectedGraphMap<number, string>;
+  declare subscriptions: DirectedGraphMap<number, string>;
+  declare peerSockets:DirectedGraphMap<number, number>;
+  declare peerConnections:Map<number, PeerConnection>;
+  declare sockets:Map<number, UWSWebSocket>;
+  declare data:ObservedRemoveMap<string, any>;
+  declare peers:ObservedRemoveMap<number, Array<number>>;
+  declare providers:ObservedRemoveMap<number, Array<string>>;
+  declare provideCallbacks:Map<string, (string, boolean) => void|Promise<void>>;
+  declare activeProviders:ObservedRemoveMap<string, [number, string]>;
+  declare peerSubscriptions:ObservedRemoveSet<[number, string]>;
+  declare peerSubscriptionMap:Map<string, Set<number>>;
+  declare providerRegexes: Map<number, Array<[string, RegExp]>>;
+  declare credentialsHandlerPromises: Map<number, Promise<void>>;
+  declare peerRequestHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
+  declare credentialsHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
+  declare subscribeRequestHandler: (key:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
+  declare eventSubscribeRequestHandler: (name:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
+  declare keysForDeletion:Map<string, number>;
+  declare peerReconnectTimeouts:Map<number, TimeoutID>;
+  declare logger: {
     debug: (string) => void,
     info: (string) => void,
     warn: (string) => void,

@@ -14,8 +14,8 @@ const {
 } = require('@bunchtogether/braid-messagepack');
 
 class PeerError extends Error {
-  code: number;
-  peerId: number | void;
+  declare code: number;
+  declare peerId: number | void;
   constructor(message:string, code:number, peerId?: number) {
     super(message);
     this.name = 'PeerError';
@@ -25,7 +25,7 @@ class PeerError extends Error {
 }
 
 class CredentialsError extends Error {
-  code: number;
+  declare code: number;
   constructor(message:string, code:number) {
     super(message);
     this.name = 'CredentialsError';
@@ -172,11 +172,11 @@ class PeerConnection extends EventEmitter {
     this.ws.send(encode(new Unpeer()));
   }
 
-  id:number;
-  address:string;
-  credentials: Object;
-  ws: WS;
-  timeoutDuration: number;
+  declare id:number;
+  declare address:string;
+  declare credentials: Object;
+  declare ws: WS;
+  declare timeoutDuration: number;
 }
 
 module.exports = PeerConnection;
