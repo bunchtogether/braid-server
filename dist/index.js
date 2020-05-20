@@ -1291,37 +1291,37 @@ class Server extends EventEmitter {
     return this.peerSockets.hasTarget(peerId) || this.peerConnections.has(peerId);
   }
 
-                     
-             
+  isClosing         ;
+  id        ;
+  flushInterval            ;
+  keyFlushInterval            ;
+  messageHashes                           ;
+  eventSubscriptions                                  ;
+  subscriptions                                  ;
+  peerSockets                                 ;
+  peerConnections                            ;
+  sockets                          ;
+  data                               ;
+  peers                                         ;
+  providers                                         ;
+  provideCallbacks                                                     ;
+  activeProviders                                            ;
+  peerSubscriptions                                    ;
+  peerSubscriptionMap                         ;
+  providerRegexes                                      ;
+  credentialsHandlerPromises                            ;
+  peerRequestHandler                                                                                       ;
+  credentialsHandler                                                                                       ;
+  subscribeRequestHandler                                                                                                   ;
+  eventSubscribeRequestHandler                                                                                                    ;
+  keysForDeletion                    ;
+  peerReconnectTimeouts                       ;
+  logger   
                             
-                               
-                                           
-                                                       
-                                                  
-                                               
-                                              
-                                    
-                                      
-                                                 
-                                                     
-                                                                        
-                                                              
-                                                        
-                                               
-                                                        
-                                                         
-                                                                                                            
-                                                                                                            
-                                                                                                                             
-                                                                                                                                   
-                                      
-                                               
-           
-                            
                            
                            
                            
-    
+   ;
 }
 
 module.exports = Server;

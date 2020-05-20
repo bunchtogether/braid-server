@@ -49,6 +49,9 @@ describe(`${count} Peers in a mesh`, () => {
   test('Should track peer connections', async () => {
     for (const { server } of peers) {
       const peerIds = server.peers.get(server.id);
+      if (!peerIds) {
+        throw new Error('Unable to load peers');
+      }
       expect(peerIds).toBeInstanceOf(Array);
       expect(peerIds.length).toEqual(count - 1);
     }

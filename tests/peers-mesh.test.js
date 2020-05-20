@@ -56,20 +56,32 @@ describe(`${count} Peers in a mesh`, () => {
 
   test('Should track peer connections', async () => {
     const peerIds0 = peers[0].server.peers.get(peers[0].server.id);
+    if (!peerIds0) {
+      throw new Error('Unable to load peers');
+    }
     expect(peerIds0).toBeInstanceOf(Array);
     expect(peerIds0.length).toEqual(count / 10);
     for (let i = 1; i < 9; i += 1) {
       const { server } = peers[i];
       const peerIds = server.peers.get(server.id);
+      if (!peerIds) {
+        throw new Error('Unable to load peers');
+      }
       expect(peerIds).toBeInstanceOf(Array);
       expect(peerIds.length).toEqual(count / 10 + 1);
     }
     const peerIds9 = peers[9].server.peers.get(peers[9].server.id);
+    if (!peerIds9) {
+      throw new Error('Unable to load peers');
+    }
     expect(peerIds9).toBeInstanceOf(Array);
     expect(peerIds9.length).toEqual(count / 10);
     for (let i = 10; i < count; i += 1) {
       const { server } = peers[i];
       const peerIds = server.peers.get(server.id);
+      if (!peerIds) {
+        throw new Error('Unable to load peers');
+      }
       expect(peerIds).toBeInstanceOf(Array);
       expect(peerIds.length).toEqual(1);
     }

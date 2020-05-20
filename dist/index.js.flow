@@ -1295,7 +1295,7 @@ class Server extends EventEmitter {
   id: number;
   flushInterval: IntervalID;
   keyFlushInterval: IntervalID;
-  messageHashes: LruCache<number, boolean>;
+  messageHashes: LruCache<string, boolean>;
   eventSubscriptions: DirectedGraphMap<number, string>;
   subscriptions: DirectedGraphMap<number, string>;
   peerSockets:DirectedGraphMap<number, number>;
