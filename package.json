@@ -67,7 +67,7 @@
     "directed-graph-map": "1.2.6",
     "farmhash": "^3.1.0",
     "ip-address": "^6.3.0",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "logform": "^2.1.2",
     "lru-cache": "^5.1.1",
     "nanomatch": "^1.2.13",
