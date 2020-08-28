@@ -1,6 +1,6 @@
 {
   "name": "@bunchtogether/braid-server",
-  "version": "1.1.17",
+  "version": "1.1.18",
   "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
@@ -61,7 +61,7 @@
     "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v17.6.0.tar.gz"
   },
   "dependencies": {
-    "@bunchtogether/braid-messagepack": "^1.1.17",
+    "@bunchtogether/braid-messagepack": "^1.1.18",
     "@bunchtogether/hash-object": "^1.0.3",
     "colors": "^1.4.0",
     "directed-graph-map": "1.2.6",
@@ -71,7 +71,7 @@
     "logform": "^2.1.2",
     "lru-cache": "^5.1.1",
     "nanomatch": "^1.2.13",
-    "observed-remove": "2.2.26",
+    "observed-remove": "2.2.27",
     "p-queue": "^6.4.0",
     "uuid": "^8.1.0",
     "winston": "^3.2.1",

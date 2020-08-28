@@ -1,7 +1,7 @@
 // @flow
 
 const expect = require('expect');
-const diff = require('jest-diff');
+const { default: diff } = require('jest-diff');
 
 expect.extend({
   async toReceiveProperty(received, key, value) {
