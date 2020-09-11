@@ -20,70 +20,93 @@ See also:
     -   [throwOnLeakedReferences](#throwonleakedreferences)
     -   [publishToPeers](#publishtopeers)
         -   [Parameters](#parameters-1)
-    -   [setCredentialsHandler](#setcredentialshandler)
+    -   [sendToPeer](#sendtopeer)
         -   [Parameters](#parameters-2)
-    -   [setPeerRequestHandler](#setpeerrequesthandler)
+    -   [setCredentialsHandler](#setcredentialshandler)
         -   [Parameters](#parameters-3)
-    -   [setSubscribeRequestHandler](#setsubscriberequesthandler)
+    -   [setPeerRequestHandler](#setpeerrequesthandler)
         -   [Parameters](#parameters-4)
-    -   [setEventSubscribeRequestHandler](#seteventsubscriberequesthandler)
+    -   [setSubscribeRequestHandler](#setsubscriberequesthandler)
         -   [Parameters](#parameters-5)
-    -   [handleCredentialsRequest](#handlecredentialsrequest)
+    -   [setEventSubscribeRequestHandler](#seteventsubscriberequesthandler)
         -   [Parameters](#parameters-6)
-    -   [handlePeerRequest](#handlepeerrequest)
+    -   [setPublishRequestHandler](#setpublishrequesthandler)
         -   [Parameters](#parameters-7)
-    -   [handleSubscribeRequest](#handlesubscriberequest)
+    -   [handleCredentialsRequest](#handlecredentialsrequest)
         -   [Parameters](#parameters-8)
-    -   [handleEventSubscribeRequest](#handleeventsubscriberequest)
+    -   [handlePeerRequest](#handlepeerrequest)
         -   [Parameters](#parameters-9)
-    -   [handleMessage](#handlemessage)
+    -   [handleSubscribeRequest](#handlesubscriberequest)
         -   [Parameters](#parameters-10)
-    -   [publishEvent](#publishevent)
+    -   [handleEventSubscribeRequest](#handleeventsubscriberequest)
         -   [Parameters](#parameters-11)
-    -   [publishData](#publishdata)
+    -   [handlePublishRequest](#handlepublishrequest)
         -   [Parameters](#parameters-12)
-    -   [addEventSubscription](#addeventsubscription)
+    -   [handleMessage](#handlemessage)
         -   [Parameters](#parameters-13)
-    -   [removeEventSubscription](#removeeventsubscription)
+    -   [publishEvent](#publishevent)
         -   [Parameters](#parameters-14)
-    -   [removeEventSubscriptions](#removeeventsubscriptions)
+    -   [publishData](#publishdata)
         -   [Parameters](#parameters-15)
-    -   [addSubscription](#addsubscription)
+    -   [addEventSubscription](#addeventsubscription)
         -   [Parameters](#parameters-16)
-    -   [removeSubscription](#removesubscription)
+    -   [removeEventSubscription](#removeeventsubscription)
         -   [Parameters](#parameters-17)
-    -   [removeSubscriptions](#removesubscriptions)
+    -   [removeEventSubscriptions](#removeeventsubscriptions)
         -   [Parameters](#parameters-18)
-    -   [assignProvider](#assignprovider)
+    -   [addPublisher](#addpublisher)
         -   [Parameters](#parameters-19)
-    -   [provide](#provide)
+    -   [removePublisher](#removepublisher)
         -   [Parameters](#parameters-20)
-    -   [unprovide](#unprovide)
+    -   [removePublishers](#removepublishers)
         -   [Parameters](#parameters-21)
-    -   [closePeerConnections](#closepeerconnections)
+    -   [addSubscription](#addsubscription)
+        -   [Parameters](#parameters-22)
+    -   [removeSubscription](#removesubscription)
+        -   [Parameters](#parameters-23)
+    -   [removeSubscriptions](#removesubscriptions)
+        -   [Parameters](#parameters-24)
+    -   [assignProvider](#assignprovider)
+        -   [Parameters](#parameters-25)
+    -   [provide](#provide)
+        -   [Parameters](#parameters-26)
+    -   [unprovide](#unprovide)
+        -   [Parameters](#parameters-27)
+    -   [assignReceiver](#assignreceiver)
+        -   [Parameters](#parameters-28)
+    -   [unassignReceiver](#unassignreceiver)
+        -   [Parameters](#parameters-29)
+    -   [handlePublisherOpen](#handlepublisheropen)
+        -   [Parameters](#parameters-30)
+    -   [handlePublisherClose](#handlepublisherclose)
+        -   [Parameters](#parameters-31)
+    -   [receive](#receive)
+        -   [Parameters](#parameters-32)
+    -   [unreceive](#unreceive)
+        -   [Parameters](#parameters-33)
     -   [updatePeers](#updatepeers)
     -   [connectedPeers](#connectedpeers)
-        -   [Parameters](#parameters-22)
+        -   [Parameters](#parameters-34)
     -   [prunePeers](#prunepeers)
     -   [removePeer](#removepeer)
-        -   [Parameters](#parameters-23)
+        -   [Parameters](#parameters-35)
     -   [addPeer](#addpeer)
-        -   [Parameters](#parameters-24)
+        -   [Parameters](#parameters-36)
     -   [close](#close)
     -   [connectToPeer](#connecttopeer)
-        -   [Parameters](#parameters-25)
+        -   [Parameters](#parameters-37)
     -   [disconnectFromPeer](#disconnectfrompeer)
-        -   [Parameters](#parameters-26)
+        -   [Parameters](#parameters-38)
     -   [reconnectToPeer](#reconnecttopeer)
-        -   [Parameters](#parameters-27)
+        -   [Parameters](#parameters-39)
     -   [handlePeerSync](#handlepeersync)
-        -   [Parameters](#parameters-28)
+        -   [Parameters](#parameters-40)
     -   [syncPeerConnection](#syncpeerconnection)
-        -   [Parameters](#parameters-29)
+        -   [Parameters](#parameters-41)
     -   [syncPeerSocket](#syncpeersocket)
-        -   [Parameters](#parameters-30)
+        -   [Parameters](#parameters-42)
     -   [hasPeer](#haspeer)
-        -   [Parameters](#parameters-31)
+        -   [Parameters](#parameters-43)
 
 ### Server
 
@@ -109,7 +132,18 @@ Publish objects to peers.
 
 ##### Parameters
 
--   `obj` **(ProviderDump | DataDump | ActiveProviderDump | PeerDump | PeerSubscriptionDump)** Object to send, should have "ids" property
+-   `obj` **(ProviderDump | DataDump | ActiveProviderDump | ReceiverDump | PeerDump | PeerSubscriptionDump)** Object to send, should have "ids" property
+
+Returns **void** 
+
+#### sendToPeer
+
+Send objects to a peer.
+
+##### Parameters
+
+-   `peerId` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Peer ID to send to
+-   `obj` **(PublisherOpen | PublisherClose | PublisherPeerMessage)** Object to send
 
 Returns **void** 
 
@@ -146,6 +180,16 @@ Returns **void**
 #### setEventSubscribeRequestHandler
 
 Set the event subscribe request handler. Approves or denies event subscribe requests.
+
+##### Parameters
+
+-   `func`  
+
+Returns **void** 
+
+#### setPublishRequestHandler
+
+Set the publish request handler. Approves or denies publish requests.
 
 ##### Parameters
 
@@ -201,6 +245,18 @@ Top level handler for incoming event subscribe request messages. Uses the defaul
 
 Returns **void** 
 
+#### handlePublishRequest
+
+Top level handler for incoming publish request messages. Uses the default/custom publishRequestHandler method to validate.
+
+##### Parameters
+
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID from which the request was received
+-   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object
+-   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key the publisher is requesting to publish to
+
+Returns **void** 
+
 #### handleMessage
 
 Top level message handler, used by both sockets and connections.
@@ -208,6 +264,7 @@ Top level message handler, used by both sockets and connections.
 ##### Parameters
 
 -   `message` **(DataDump | ProviderDump | ActiveProviderDump | PeerDump | PeerSubscriptionDump | PeerSync | PeerSyncResponse | BraidEvent)** Message to handle
+-   `peerId`  
 
 Returns **void** 
 
@@ -264,6 +321,38 @@ Remove all subscriptions from a socket, for example after the socket disconnects
 ##### Parameters
 
 -   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the subscriber
+
+Returns **void** 
+
+#### addPublisher
+
+Add a publisher socket to a receiver.
+
+##### Parameters
+
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the publisher
+-   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key to receive publisher messages
+
+Returns **void** 
+
+#### removePublisher
+
+Remove a publisher socket from a receiver.
+
+##### Parameters
+
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the publisher
+-   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key on which the publisher should stop sending updates
+
+Returns **void** 
+
+#### removePublishers
+
+Remove all receivers from a publisher socket, for example after the socket disconnects
+
+##### Parameters
+
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the publisher
 
 Returns **void** 
 
@@ -330,11 +419,75 @@ Indicate this server instance is no longer providing for keys matching the regex
 
 Returns **void** 
 
-#### closePeerConnections
+#### assignReceiver
 
-Close all outgoing peer connections.
+Assign a receiver to a key.
 
-Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)&lt;void>** 
+##### Parameters
+
+-   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key to for a socket to publish to, which peers will then disseminate to recivers
+-   `socketId`  
+
+Returns **void** 
+
+#### unassignReceiver
+
+Unassign a receiver to a key.
+
+##### Parameters
+
+-   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key that the socket was publishing to
+-   `socketId`  
+
+Returns **void** 
+
+#### handlePublisherOpen
+
+Top level publisher open handler
+
+##### Parameters
+
+-   `peerId`  
+-   `regexString`  
+-   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key the socket is publishing to
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the peer
+-   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object
+
+Returns **void** 
+
+#### handlePublisherClose
+
+Top level publisher close handler
+
+##### Parameters
+
+-   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key the socket is publishing to
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the peer
+
+Returns **void** 
+
+#### receive
+
+Indicate this server instance is receiving messages from publishers for keys matching the regex string.
+
+##### Parameters
+
+-   `regexString` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Regex to match keys with
+-   `messageCallback`  
+-   `openCallback`  
+-   `closeCallback`  
+
+Returns **void** 
+
+#### unreceive
+
+Indicate this server instance is no longer receiving from publishers for keys matching the regex string.
+
+##### Parameters
+
+-   `regexString` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Regex to match keys with
+
+Returns **void** 
 
 #### updatePeers
 
