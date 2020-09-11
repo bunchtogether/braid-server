@@ -22,6 +22,7 @@ const {
   DataDump,
   ProviderDump,
   ActiveProviderDump,
+  ReceiverDump,
   PeerDump,
   PeerSubscriptionDump,
   PeerSync,
@@ -35,6 +36,14 @@ const {
   EventSubscribeResponse,
   EventUnsubscribe,
   BraidEvent,
+  PublishRequest,
+  PublishResponse,
+  PublisherOpen,
+  PublisherClose,
+  PublisherMessage,
+  PublisherPeerMessage,
+  Unpublish,
+//  PublisherMessage,
 } = require('@bunchtogether/braid-messagepack');
 
 function randomInteger() {
@@ -75,6 +84,11 @@ class Server extends EventEmitter {
     //   Value: [Peer ID, regex string]
     this.activeProviders = new ObservedRemoveMap([], { bufferPublishing: 0 });
 
+    // Receiver map, each peer stores regex strings it can receive messages from publishers for
+    //   Key: key
+    //   Value: [Peer ID, regex string]
+    this.receivers = new ObservedRemoveMap([], { bufferPublishing: 0 });
+
     // Peers which are currently subscribed to a key
     //   Values: [peerId, key]
     this.peerSubscriptions = new ObservedRemoveSet([], { bufferPublishing: 0 });
@@ -93,6 +107,36 @@ class Server extends EventEmitter {
     //   Key: regex strings
     //   Value: Callback function
     this.provideCallbacks = new Map();
+
+    // Matcher functions for each receiver
+    //   Key: Peer ID
+    //   Value: Array of regex strings, regex objects pairs
+    this.receiverRegexes = new Map();
+
+    // Callbacks for receiving / unreceiving
+    //   Key: regex strings
+    //   Value: [Message callback function, Open callback function, Close callback function]
+    this.receiveCallbacks = new Map();
+
+    // Map of outgoing publishers to Peer IDs
+    //   Source: {Key}:{socketId}
+    //   Target: Peer ID
+    this.receiverPeers = new DirectedGraphMap();
+
+    // Map of Keys to callbaks
+    //   Source: {Key}:{socketId}
+    //   Target: Matching regex string
+    this.receiveSessions = new DirectedGraphMap();
+
+    // Map of Keys to callbaks
+    //   Source: {Key}:{socketId}
+    //   Target: Matching regex string
+    this.publishSessions = new DirectedGraphMap();
+
+    // Map of incoming publishers to Peer IDs
+    //   Source: {Key}:{socketId}
+    //   Target: Peer ID
+    this.publisherPeers = new DirectedGraphMap();
 
     // Active (incoming) sockets
     //   Key: Socket ID
@@ -113,6 +157,11 @@ class Server extends EventEmitter {
     //   Source: Socket ID
     //   Target: Key
     this.subscriptions = new DirectedGraphMap();
+
+    // Active publishers
+    //   Source: Socket ID
+    //   Target: Key
+    this.publishers = new DirectedGraphMap();
 
     // Active event subscriptions
     //   Source: Socket ID
@@ -144,6 +193,7 @@ class Server extends EventEmitter {
       this.data.flush();
       this.peers.flush();
       this.providers.flush();
+      this.receivers.flush();
       this.activeProviders.flush();
       this.peerSubscriptions.flush();
     }, 10000);
@@ -170,6 +220,9 @@ class Server extends EventEmitter {
     this.setEventSubscribeRequestHandler(async (name       , credentials        ) => // eslint-disable-line no-unused-vars
       ({ success: true, code: 200, message: 'OK' }),
     );
+    this.setPublishRequestHandler(async (key       , credentials        ) => // eslint-disable-line no-unused-vars
+      ({ success: true, code: 200, message: 'OK' }),
+    );
     this.data.on('publish', (queue                     ) => {
       this.publishToPeers(new DataDump(queue, [this.id]));
       this.publishData(queue);
@@ -179,6 +232,9 @@ class Server extends EventEmitter {
     });
     this.activeProviders.on('publish', (queue                     ) => {
       this.publishToPeers(new ActiveProviderDump(queue, [this.id]));
+    });
+    this.receivers.on('publish', (queue                     ) => {
+      this.publishToPeers(new ReceiverDump(queue, [this.id]));
     });
     this.peers.on('publish', (queue                     ) => {
       this.publishToPeers(new PeerDump(queue, [this.id]));
@@ -261,6 +317,46 @@ class Server extends EventEmitter {
     this.providers.on('delete', (peerId       ) => {
       this.providerRegexes.delete(peerId);
     });
+    this.receivers.on('set', (peerId       , regexStrings              , previousRegexStrings                     ) => {
+      const regexMap = new Map(regexStrings.map((regexString) => [regexString, new RegExp(regexString)]));
+      this.receiverRegexes.set(peerId, regexMap);
+      if (Array.isArray(previousRegexStrings)) {
+        for (const previousRegexString of previousRegexStrings) {
+          if (regexStrings.includes(previousRegexString)) {
+            continue;
+          }
+          const sessionKeys = this.publishSessions.getSources(previousRegexString);
+          for (const sessionKey of sessionKeys) {
+            const [key, socketIdString] = sessionKey.split(':');
+            const socketId = parseInt(socketIdString, 10);
+            this.unassignReceiver(key, socketId);
+          }
+        }
+      }
+      for (const [socketId, key] of this.publishers) {
+        const sessionKey = `${key}:${socketId}`;
+        if (this.receiverPeers.hasSource(sessionKey)) {
+          continue;
+        }
+        this.assignReceiver(key, socketId);
+      }
+    });
+    this.receivers.on('delete', (peerId       ) => {
+      this.receiverRegexes.delete(peerId);
+      const sessionKeys = new Set(this.receiverPeers.getSources(peerId));
+      for (const sessionKey of sessionKeys) {
+        const [key, socketIdString] = sessionKey.split(':');
+        const socketId = parseInt(socketIdString, 10);
+        this.unassignReceiver(key, socketId);
+      }
+      for (const [socketId, key] of this.publishers) {
+        const sessionKey = `${key}:${socketId}`;
+        if (this.receiverPeers.hasSource(sessionKey)) {
+          continue;
+        }
+        this.assignReceiver(key, socketId);
+      }
+    });
     const options = Object.assign({}, websocketBehavior, {
       open: (ws, req) => { // eslint-disable-line no-unused-vars
         const socketId = randomInteger();
@@ -286,12 +382,14 @@ class Server extends EventEmitter {
           return;
         }
         const message = decode(data);
-        if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent) {
+        if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage) {
           if (!this.peerSockets.hasSource(socketId)) {
             this.logger.error(`Received dump from non-peer ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId})`);
             return;
           }
-          this.handleMessage(message);
+          for (const peerId of this.peerSockets.getTargets(socketId)) {
+            this.handleMessage(message, peerId);
+          }
         }
         if (message instanceof Credentials) {
           this.handleCredentialsRequest(socketId, ws.credentials, message.value);
@@ -305,6 +403,12 @@ class Server extends EventEmitter {
           this.handleEventSubscribeRequest(socketId, ws.credentials, message.value);
         } else if (message instanceof EventUnsubscribe) {
           this.removeEventSubscription(socketId, message.value);
+        } else if (message instanceof PublishRequest) {
+          this.handlePublishRequest(socketId, ws.credentials, message.value);
+        } else if (message instanceof Unpublish) {
+          this.removePublisher(socketId, message.value);
+        } else if (message instanceof PublisherMessage) {
+          this.handlePublisherMessage(message.key, socketId, message.message);
         }
       },
       close: (ws, code, data) => { // eslint-disable-line no-unused-vars
@@ -314,6 +418,7 @@ class Server extends EventEmitter {
           return;
         }
         this.removeSubscriptions(socketId);
+        this.removePublishers(socketId);
         this.removeEventSubscriptions(socketId);
         if (this.peerSockets.hasSource(socketId)) {
           this.peerSockets.removeSource(socketId);
@@ -356,11 +461,9 @@ class Server extends EventEmitter {
       throw new Error(`${this.id}: ${this.peerConnections.size} referenced peer connections`);
     }
     if (this.peers.size > 0) {
-      console.log(this.id, [...this.peers]);
       throw new Error(`${this.id}: ${this.peers.size} referenced peers`);
     }
     if (this.providers.size > 0) {
-      console.log(this.id, [...this.providers]);
       throw new Error(`${this.id}: ${this.providers.size} referenced providers`);
     }
     if (this.providerRegexes.size > 0) {
@@ -376,16 +479,40 @@ class Server extends EventEmitter {
       throw new Error(`${this.id}: ${this.peerSubscriptions.size} referenced peer subscription`);
     }
     if (this.activeProviders.size > 0) {
-      throw new Error(`${this.id}: ${this.activeProviders.size} referenced activeProviders`);
+      throw new Error(`${this.id}: ${this.activeProviders.size} referenced active providers`);
+    }
+    if (this.publishers.size > 0) {
+      throw new Error(`${this.id}: ${this.publishers.size} referenced publishers`);
+    }
+    if (this.receivers.size > 0) {
+      throw new Error(`${this.id}: ${this.receivers.size} referenced receivers`);
+    }
+    if (this.receiverRegexes.size > 0) {
+      throw new Error(`${this.id}: ${this.receiverRegexes.size} referenced receiver regexes`);
+    }
+    if (this.receiveCallbacks.size > 0) {
+      throw new Error(`${this.id}: ${this.receiveCallbacks.size} referenced receiver callbacks`);
+    }
+    if (this.receiverPeers.size > 0) {
+      throw new Error(`${this.id}: ${this.receiverPeers.size} referenced active receivers`);
+    }
+    if (this.receiveSessions.size > 0) {
+      throw new Error(`${this.id}: ${this.receiveSessions.size} referenced receive sessions`);
+    }
+    if (this.publisherPeers.size > 0) {
+      throw new Error(`${this.id}: ${this.publisherPeers.size} referenced publisher peers`);
+    }
+    if (this.publishSessions.size > 0) {
+      throw new Error(`${this.id}: ${this.publisherPeers.size} referenced publisher sessions`);
     }
   }
 
   /**
    * Publish objects to peers.
-   * @param {ProviderDump|DataDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump} obj - Object to send, should have "ids" property
+   * @param {ProviderDump|DataDump|ActiveProviderDump|ReceiverDump|PeerDump|PeerSubscriptionDump} obj - Object to send, should have "ids" property
    * @return {void}
    */
-  publishToPeers(obj                                                                                  ) {
+  publishToPeers(obj                                                                                               ) {
     const peerIds = obj.ids;
     const peerConnections = [];
     const peerUWSSockets = [];
@@ -426,6 +553,29 @@ class Server extends EventEmitter {
   }
 
   /**
+   * Send objects to a peer.
+   * @param {string} peerId - Peer ID to send to
+   * @param {PublisherOpen|PublisherClose|PublisherPeerMessage} obj - Object to send
+   * @return {void}
+   */
+  sendToPeer(peerId       , obj                                                  ) {
+    const encoded = encode(obj);
+    const peerConnection = this.peerConnections.get(peerId);
+    if (peerConnection) {
+      const { ws } = peerConnection;
+      ws.send(encoded);
+      return;
+    }
+    const arrayBufferEncoded = getArrayBuffer(encoded);
+    for (const socketId of this.peerSockets.getSources(peerId)) {
+      const ws = this.sockets.get(socketId);
+      if (ws) {
+        ws.send(arrayBufferEncoded, true, false);
+      }
+    }
+  }
+
+  /**
    * Set the credentials handler. The handler evaluates and modifies credentials provided by peers and clients when they are initially provided.
    * @param {(credentials: Object) => Promise<{ success: boolean, code: number, message: string }>} func - Credentials handler.
    * @return {void}
@@ -452,7 +602,6 @@ class Server extends EventEmitter {
     this.subscribeRequestHandler = func;
   }
 
-
   /**
    * Set the event subscribe request handler. Approves or denies event subscribe requests.
    * @param {(credentials: Object) => Promise<{ success: boolean, code: number, message: string }>} func - Event subscription request handler.
@@ -460,6 +609,15 @@ class Server extends EventEmitter {
    */
   setEventSubscribeRequestHandler(func                                                                                                    ) { // eslint-disable-line no-unused-vars
     this.eventSubscribeRequestHandler = func;
+  }
+
+  /**
+   * Set the publish request handler. Approves or denies publish requests.
+   * @param {(credentials: Object) => Promise<{ success: boolean, code: number, message: string }>} func - Publish request handler.
+   * @return {void}
+   */
+  setPublishRequestHandler(func                                                                                                   ) { // eslint-disable-line no-unused-vars
+    this.publishRequestHandler = func;
   }
 
   /**
@@ -637,11 +795,45 @@ class Server extends EventEmitter {
   }
 
   /**
+   * Top level handler for incoming publish request messages. Uses the default/custom publishRequestHandler method to validate.
+   * @param {number} socketId Socket ID from which the request was received
+   * @param {Object} credentials Credentials object
+   * @param {string} key Key the publisher is requesting to publish to
+   * @return {void}
+   */
+  async handlePublishRequest(socketId       , credentials       , key       ) {
+    // Wait for any credential handler operations to complete
+    await this.credentialsHandlerPromises.get(socketId);
+    let response;
+    try {
+      response = await this.publishRequestHandler(key, credentials);
+    } catch (error) {
+      if (error.stack) {
+        this.logger.error('Publish request handler error:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Publish request handler error: ${error.message}`);
+      }
+      response = { success: false, code: 500, message: 'Publish request handler error' };
+    }
+    const ws = this.sockets.get(socketId);
+    if (!ws) {
+      this.logger.error(`Cannot respond to publish request from socket ID ${socketId}, socket does not exist`);
+      return;
+    }
+    if (response.success) {
+      this.addPublisher(socketId, key);
+    }
+    const unencoded = new PublishResponse({ key, success: response.success, code: response.code, message: response.message });
+    ws.send(getArrayBuffer(encode(unencoded)), true, false);
+  }
+
+  /**
    * Top level message handler, used by both sockets and connections.
    * @param {DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse|BraidEvent} message Message to handle
    * @return {void}
    */
-  handleMessage(message                                                                                                            ) {
+  handleMessage(message                                                                                                                                                                           , peerId       ) {
     if (message instanceof PeerSync) {
       this.handlePeerSync(message);
       return;
@@ -655,6 +847,15 @@ class Server extends EventEmitter {
       this.messageHashes.set(message.id, true);
       this.publishEvent(message.name, message.args, message.id);
       this.publishToPeers(message);
+      return;
+    } else if (message instanceof PublisherOpen) {
+      this.handlePublisherOpen(peerId, message.regexString, message.key, message.socketId, message.credentials);
+      return;
+    } else if (message instanceof PublisherClose) {
+      this.handlePublisherClose(message.key, message.socketId);
+      return;
+    } else if (message instanceof PublisherPeerMessage) {
+      this.handlePublisherPeerMessage(message.key, message.socketId, message.message);
       return;
     }
     const hash = hash32(message.queue);
@@ -671,6 +872,8 @@ class Server extends EventEmitter {
       this.providers.process(message.queue, true);
     } else if (message instanceof ActiveProviderDump) {
       this.activeProviders.process(message.queue, true);
+    } else if (message instanceof ReceiverDump) {
+      this.receivers.process(message.queue, true);
     } else if (message instanceof PeerDump) {
       this.peers.process(message.queue, true);
     }
@@ -785,6 +988,43 @@ class Server extends EventEmitter {
   }
 
   /**
+   * Add a publisher socket to a receiver.
+   * @param {number} socketId Socket ID of the publisher
+   * @param {string} key Key to receive publisher messages
+   * @return {void}
+   */
+  addPublisher(socketId       , key       ) {
+    const ws = this.sockets.get(socketId);
+    if (!ws) {
+      throw new Error(`Can not add publisher with socket ID ${socketId} for key ${key}, socket does not exist`);
+    }
+    this.publishers.addEdge(socketId, key);
+    this.assignReceiver(key, socketId);
+  }
+
+  /**
+   * Remove a publisher socket from a receiver.
+   * @param {number} socketId Socket ID of the publisher
+   * @param {string} key Key on which the publisher should stop sending updates
+   * @return {void}
+   */
+  removePublisher(socketId       , key       ) {
+    this.publishers.removeEdge(socketId, key);
+    this.unassignReceiver(key, socketId);
+  }
+
+  /**
+   * Remove all receivers from a publisher socket, for example after the socket disconnects
+   * @param {number} socketId Socket ID of the publisher
+   * @return {void}
+   */
+  removePublishers(socketId       ) {
+    for (const key of this.publishers.getTargets(socketId)) {
+      this.removePublisher(socketId, key);
+    }
+  }
+
+  /**
    * Add a subscription to a socket.
    * @param {number} socketId Socket ID of the subscriber
    * @param {string} key Key to provide the subscriber with updates
@@ -893,12 +1133,193 @@ class Server extends EventEmitter {
   }
 
   /**
-   * Close all outgoing peer connections.
-   * @return {Promise<void>}
+   * Assign a receiver to a key.
+   * @param {string} key Key to for a socket to publish to, which peers will then disseminate to recivers
+
+   * @return {void}
    */
-  async closePeerConnections() {
-    await Promise.all([...this.peerConnections.values()].map((peerConnection) => peerConnection.close()));
+  assignReceiver(key       , socketId        ) {
+    const ws = this.sockets.get(socketId);
+    if (!ws) {
+      this.logger.error(`Cannot assign "${key}" receiver for ${socketId}, socket does not exist`);
+      return;
+    }
+    const { credentials } = ws;
+    const peerIdWithRegexes = [];
+    const sessionKey = `${key}:${socketId}`;
+    for (const [peerId, regexMap] of this.receiverRegexes) {
+      for (const [regexString, regex] of regexMap) { // eslint-disable-line no-unused-vars
+        if (regex.test(key)) {
+          this.publishSessions.addEdge(sessionKey, regexString);
+          if (this.id === peerId) {
+            this.receiverPeers.addEdge(sessionKey, peerId);
+            this.handlePublisherOpen(this.id, regexString, key, socketId, credentials);
+            return;
+          }
+          peerIdWithRegexes.push([peerId, regexString]);
+          break;
+        }
+      }
+    }
+    if (peerIdWithRegexes.length === 0) {
+      this.logger.warn(`Unable to find receiver for "${key}"`);
+      return;
+    }
+    const [activePeerId, regexString] = peerIdWithRegexes[Math.floor(Math.random() * peerIdWithRegexes.length)];
+    this.receiverPeers.addEdge(`${key}:${socketId}`, activePeerId);
+    this.sendToPeer(activePeerId, new PublisherOpen(regexString, key, socketId, credentials));
   }
+
+  /**
+   * Unassign a receiver to a key.
+   * @param {string} key Key that the socket was publishing to
+
+   * @return {void}
+   */
+  unassignReceiver(key       , socketId        ) {
+    const sessionKey = `${key}:${socketId}`;
+    const peerIds = new Set(this.receiverPeers.getTargets(sessionKey));
+    this.receiverPeers.removeSource(sessionKey);
+    this.publishSessions.removeSource(sessionKey);
+    for (const peerId of peerIds) {
+      if (this.id === peerId) {
+        this.handlePublisherClose(key, socketId);
+      } else {
+        this.sendToPeer(peerId, new PublisherClose(key, socketId));
+      }
+    }
+    if (peerIds.size === 0) {
+      this.logger.warn(`Unable to unassign receiver for socket ${socketId} with key "${key}"`);
+    }
+  }
+
+  /**
+   * Top level publisher open handler
+   * @param {string} key Key the socket is publishing to
+   * @param {number} socketId Socket ID of the peer
+   * @param {Object} credentials Credentials object
+   * @return {void}
+   */
+  handlePublisherOpen(peerId       , regexString       , key       , socketId       , credentials       ) {
+    const regexMap = this.receiverRegexes.get(this.id);
+    if (!regexMap) {
+      this.logger.warn(`Unable to find matching receiver regexes for "${key}"`);
+      return;
+    }
+    if (!regexMap.has(regexString)) {
+      this.logger.warn(`Unable to find matching receiver regex "${regexString}" for "${key}"`);
+      return;
+    }
+    const callbacks = this.receiveCallbacks.get(regexString);
+    if (!callbacks) {
+      this.logger.warn(`Unable to find matching receiver callbacks for "${regexString}"`);
+      return;
+    }
+    const sessionKey = `${key}:${socketId}`;
+    this.publisherPeers.addEdge(sessionKey, peerId);
+    this.receiveSessions.addEdge(sessionKey, regexString);
+    const openCallback = callbacks[1];
+    if (typeof openCallback === 'function') {
+      openCallback(key, socketId, credentials);
+    }
+  }
+
+  /**
+   * Top level publisher close handler
+   * @param {string} key Key the socket is publishing to
+   * @param {number} socketId Socket ID of the peer
+   * @return {void}
+   */
+  handlePublisherClose(key       , socketId       ) {
+    const sessionKey = `${key}:${socketId}`;
+    const regexStrings = new Set(this.receiveSessions.getTargets(sessionKey));
+    this.publisherPeers.removeSource(sessionKey);
+    this.receiveSessions.removeSource(sessionKey);
+    for (const regexString of regexStrings) {
+      const callbacks = this.receiveCallbacks.get(regexString);
+      if (!callbacks) {
+        continue;
+      }
+      const closeCallback = callbacks[2];
+      if (typeof closeCallback === 'function') {
+        closeCallback(key, socketId);
+        return;
+      }
+    }
+    this.logger.warn(`Unable to find receive session callbacks for "${key}" and socket ${socketId}`);
+  }
+
+  handlePublisherMessage(key       , socketId       , message    ) {
+    const sessionKey = `${key}:${socketId}`;
+    for (const peerId of this.receiverPeers.getTargets(sessionKey)) {
+      if (this.id === peerId) {
+        this.handlePublisherPeerMessage(key, socketId, message);
+        return;
+      }
+      this.sendToPeer(peerId, new PublisherPeerMessage(key, socketId, message));
+      return;
+    }
+    this.logger.warn(`Unable to find receive session callbacks for "${key}" and socket ${socketId}`);
+  }
+
+  handlePublisherPeerMessage(key       , socketId       , message    ) {
+    const sessionKey = `${key}:${socketId}`;
+    const regexStrings = this.receiveSessions.getTargets(sessionKey);
+    for (const regexString of regexStrings) {
+      const callbacks = this.receiveCallbacks.get(regexString);
+      if (!callbacks) {
+        continue;
+      }
+      const messageCallback = callbacks[0];
+      if (typeof messageCallback === 'function') {
+        messageCallback(key, socketId, message);
+        return;
+      }
+    }
+  }
+
+  /**
+   * Indicate this server instance is receiving messages from publishers for keys matching the regex string.
+   * @param {string} regexString Regex to match keys with
+   * @param {(key:string, active:boolean) => void} callback Callback function, called when a receiver should start or stop receiving values
+   * @return {void}
+   */
+  receive(regexString       , messageCallback                                                                      , openCallback                                                                           , closeCallback                                                       ) {
+    const regexStrings = new Set(this.receivers.get(this.id));
+    regexStrings.add(regexString);
+    this.receiveCallbacks.set(regexString, [messageCallback, openCallback, closeCallback]);
+    this.receivers.set(this.id, [...regexStrings]);
+  }
+
+  /**
+   * Indicate this server instance is no longer receiving from publishers for keys matching the regex string.
+   * @param {string} regexString Regex to match keys with
+   * @param {(key:string, active:boolean) => void} callback Callback function, called when a receiver should start or stop receiving values
+   * @return {void}
+   */
+  unreceive(regexString       ) {
+    for (const sessionKey of this.receiveSessions.getSources(regexString)) {
+      const [key, socketIdString] = sessionKey.split(':');
+      const socketId = parseInt(socketIdString, 10);
+      this.handlePublisherClose(key, socketId);
+    }
+    const regexStrings = new Set(this.receivers.get(this.id));
+    regexStrings.delete(regexString);
+    this.receiveCallbacks.delete(regexString);
+    if (regexStrings.size > 0) {
+      this.receivers.set(this.id, [...regexStrings]);
+    } else {
+      this.receivers.delete(this.id);
+    }
+  }
+
+  //  /**
+  //   * Close all outgoing peer connections.
+  //   * @return {Promise<void>}
+  //   */
+  //  async closePeerConnections() {
+  //    await Promise.all([...this.peerConnections.values()].map((peerConnection) => peerConnection.close()));
+  //  }
 
   /**
    * Update the peers Observed remove map with local peer IDs
@@ -958,6 +1379,9 @@ class Server extends EventEmitter {
     this.peers.delete(peerId);
     this.providers.delete(peerId);
     this.providerRegexes.delete(peerId);
+    this.receivers.delete(peerId);
+    this.receiverRegexes.delete(peerId);
+    //
     for (const [pId, key] of this.peerSubscriptions) {
       if (pId === peerId) {
         this.peerSubscriptions.delete([pId, key]);
@@ -968,6 +1392,23 @@ class Server extends EventEmitter {
         this.activeProviders.delete(key);
         this.assignProvider(key);
       }
+    }
+    const receiverPeerSessionKeys = new Set(this.receiverPeers.getSources(peerId));
+    this.receiverPeers.removeTarget(peerId);
+    for (const sessionKey of receiverPeerSessionKeys) {
+      const [key, socketIdString] = sessionKey.split(':');
+      const socketId = parseInt(socketIdString, 10);
+      this.assignReceiver(key, socketId);
+    }
+    const publisherPeerSessionKeys = this.publisherPeers.getSources(peerId);
+    for (const sessionKey of publisherPeerSessionKeys) {
+      const [key, socketIdString] = sessionKey.split(':');
+      const socketId = parseInt(socketIdString, 10);
+      this.handlePublisherClose(key, socketId);
+    }
+    this.publisherPeers.removeTarget(peerId);
+    if (this.id === peerId) {
+      this.receiveCallbacks.clear();
     }
   }
 
@@ -996,7 +1437,12 @@ class Server extends EventEmitter {
   async close() {
     this.logger.info('Closing');
     this.isClosing = true;
-    await this.closePeerConnections();
+    const peerDisconnectPromises = [];
+    for (const peerId of this.peerConnections.keys()) {
+      peerDisconnectPromises.push(this.disconnectFromPeer(peerId));
+    }
+    await Promise.all(peerDisconnectPromises);
+    // await this.closePeerConnections();
     for (const reconnectTimeout of this.peerReconnectTimeouts.values()) {
       clearTimeout(reconnectTimeout);
     }
@@ -1058,37 +1504,39 @@ class Server extends EventEmitter {
     }
     const start = Date.now();
     if (this.peerConnections.has(peerId)) {
-      await peerConnection.close();
+      await peerConnection.close(1000);
       this.logger.warn(`Closing connection to ${address}, connection to peer ${peerId} already exists`);
       return peerId;
     }
     if (this.peerSockets.hasTarget(peerId)) {
-      await peerConnection.close();
+      await peerConnection.close(1000);
       this.logger.warn(`Closing connection to ${address}, socket with peer ${peerId} already exists`);
       return peerId;
     }
-    peerConnection.on('close', () => {
+    peerConnection.on('close', (code       ) => {
       const shouldReconnect = this.peerConnections.has(peerId);
-      this.logger.info(`Connection to ${address} with peer ID ${peerId} closed`);
+      this.logger.info(`Connection to ${address} with peer ID ${peerId} closed with code ${code}`);
       this.peerConnections.delete(peerId);
       this.updatePeers();
       this.prunePeers();
       if (!shouldReconnect) {
         return;
       }
-      if (Date.now() < start + 120000) {
-        this.reconnectToPeer(peerId, attempt + 1, address, credentials);
-      } else {
-        this.reconnectToPeer(peerId, 1, address, credentials);
+      if (code !== 1001) {
+        if (Date.now() < start + 120000) {
+          this.reconnectToPeer(peerId, attempt + 1, address, credentials);
+        } else {
+          this.reconnectToPeer(peerId, 1, address, credentials);
+        }
       }
     });
     this.peerConnections.set(peerId, peerConnection);
     peerConnection.removeListener('message', queueMessages);
     peerConnection.on('message', (message    ) => {
-      this.handleMessage(message);
+      this.handleMessage(message, peerId);
     });
     for (const message of messageQueue) {
-      this.handleMessage(message);
+      this.handleMessage(message, peerId);
     }
     this.updatePeers();
     this.logger.info(`Connected to ${address} with peer ID ${peerId}`);
@@ -1107,13 +1555,31 @@ class Server extends EventEmitter {
     const peerReconnectTimeout = this.peerReconnectTimeouts.get(peerId);
     clearTimeout(peerReconnectTimeout);
     if (peerConnection) {
-      await peerConnection.close();
+      await peerConnection.close(1001);
     }
     for (const socketId of this.peerSockets.getSources(peerId)) {
       const ws = this.sockets.get(socketId);
-      if (ws) {
-        ws.close();
+      if (!ws) {
+        continue;
       }
+      await new Promise((resolve, reject) => {
+        const handleClose = (sId       ) => {
+          if (sId !== socketId) {
+            return;
+          }
+          this.removeListener('error', handleError);
+          this.removeListener('close', handleClose);
+          resolve();
+        };
+        const handleError = (error      ) => {
+          this.removeListener('error', handleError);
+          this.removeListener('close', handleClose);
+          reject(error);
+        };
+        this.on('error', handleError);
+        this.on('close', handleClose);
+        ws.end(1001, 'Peer disconncting');
+      });
     }
   }
 
@@ -1167,6 +1633,7 @@ class Server extends EventEmitter {
     this.data.process(peerSync.data.queue, true);
     this.peers.process(peerSync.peers.queue, true);
     this.providers.process(peerSync.providers.queue, true);
+    this.receivers.process(peerSync.receivers.queue, true);
     this.activeProviders.process(peerSync.activeProviders.queue, true);
     this.peerSubscriptions.process(peerSync.peerSubscriptions.queue, true);
     const peerConnection = this.peerConnections.get(peerSync.id);
@@ -1204,6 +1671,7 @@ class Server extends EventEmitter {
       new DataDump(this.data.dump()),
       new PeerDump(this.peers.dump()),
       new ProviderDump(this.providers.dump()),
+      new ReceiverDump(this.receivers.dump()),
       new ActiveProviderDump(this.activeProviders.dump()),
       new PeerSubscriptionDump(this.peerSubscriptions.dump()),
     );
@@ -1251,6 +1719,7 @@ class Server extends EventEmitter {
       new DataDump(this.data.dump()),
       new PeerDump(this.peers.dump()),
       new ProviderDump(this.providers.dump()),
+      new ReceiverDump(this.receivers.dump()),
       new ActiveProviderDump(this.activeProviders.dump()),
       new PeerSubscriptionDump(this.peerSubscriptions.dump()),
     );
@@ -1299,6 +1768,7 @@ class Server extends EventEmitter {
                                                                
                                                           
                                                        
+                                                       
                                                       
                                             
                                               
@@ -1306,13 +1776,21 @@ class Server extends EventEmitter {
                                                              
                                                                                 
                                                                       
+                                                             
+                                                                                                                                                                                                         
+                                                            
+                                                            
+                                                           
+                                                          
                                                                 
                                                        
                                                                 
+                                                            
                                                                  
                                                                                                                     
                                                                                                                     
                                                                                                                                      
+                                                                                                                                   
                                                                                                                                            
                                               
                                                        
