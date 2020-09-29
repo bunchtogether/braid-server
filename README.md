@@ -406,6 +406,7 @@ Indicate this server instance is providing for keys matching the regex string.
 
 -   `regexString` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Regex to match keys with
 -   `callback`  
+-   `options`   (optional, default `{}`)
 
 Returns **void** 
 
