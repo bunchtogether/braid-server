@@ -108,6 +108,16 @@ class Server extends EventEmitter {
     //   Value: Callback function
     this.provideCallbacks = new Map();
 
+    // Options for providing / unproviding
+    //   Key: regex strings
+    //   Value: Object
+    this.provideOptions = new Map();
+
+    // Debounce timeouts for providers
+    //   Key: key
+    //   Value: TimeoutId
+    this.provideDebounceTimeouts = new Map();
+
     // Matcher functions for each receiver
     //   Key: Peer ID
     //   Value: Array of regex strings, regex objects pairs
@@ -250,17 +260,37 @@ class Server extends EventEmitter {
         this.peerSubscriptionMap.set(key, peerIds);
       }
       peerIds.add(peerId);
+      clearTimeout(this.provideDebounceTimeouts.get(key));
+      this.provideDebounceTimeouts.delete(key);
     });
     this.peerSubscriptions.on('delete', ([peerId, key]) => {
-      const peerIds = this.peerSubscriptionMap.get(key);
-      if (!peerIds) {
+      const removeActiveProvider = () => {
+        clearTimeout(this.provideDebounceTimeouts.get(key));
+        this.provideDebounceTimeouts.delete(key);
+        const peerIds = this.peerSubscriptionMap.get(key);
+        if (!peerIds) {
+          return;
+        }
+        peerIds.delete(peerId);
+        if (peerIds.size === 0) {
+          this.peerSubscriptionMap.delete(key);
+          this.activeProviders.delete(key);
+          this.keysForDeletion.set(key, Date.now() + 86400000);
+        }
+      };
+      clearTimeout(this.provideDebounceTimeouts.get(key));
+      this.provideDebounceTimeouts.delete(key);
+      const peerIdAndRegexString = this.activeProviders.get(key);
+      if (!peerIdAndRegexString) {
+        removeActiveProvider();
         return;
       }
-      peerIds.delete(peerId);
-      if (peerIds.size === 0) {
-        this.peerSubscriptionMap.delete(key);
-        this.activeProviders.delete(key);
-        this.keysForDeletion.set(key, Date.now() + 86400000);
+      const regexString = peerIdAndRegexString[1];
+      const provideOptions = this.provideOptions.get(regexString);
+      if (provideOptions && typeof provideOptions.debounce === 'number') {
+        this.provideDebounceTimeouts.set(key, setTimeout(removeActiveProvider, provideOptions.debounce));
+      } else {
+        removeActiveProvider();
       }
     });
     this.peers.on('set', (peerId, peerIds, previousPeerIds) => {
@@ -480,6 +510,15 @@ class Server extends EventEmitter {
     }
     if (this.activeProviders.size > 0) {
       throw new Error(`${this.id}: ${this.activeProviders.size} referenced active providers`);
+    }
+    if (this.provideCallbacks.size > 0) {
+      throw new Error(`${this.id}: ${this.provideCallbacks.size} referenced provide callbacks`);
+    }
+    if (this.provideOptions.size > 0) {
+      throw new Error(`${this.id}: ${this.provideOptions.size} referenced provide options`);
+    }
+    if (this.provideDebounceTimeouts.size > 0) {
+      throw new Error(`${this.id}: ${this.provideDebounceTimeouts.size} referenced provide debounce timeouts`);
     }
     if (this.publishers.size > 0) {
       throw new Error(`${this.id}: ${this.publishers.size} referenced publishers`);
@@ -1102,10 +1141,11 @@ class Server extends EventEmitter {
    * @param {(key:string, active:boolean) => void} callback Callback function, called when a provider should start or stop providing values
    * @return {void}
    */
-  provide(regexString       , callback                                                    ) {
+  provide(regexString       , callback                                                    , options                       = {}) {
     const regexStrings = new Set(this.providers.get(this.id));
     regexStrings.add(regexString);
     this.provideCallbacks.set(regexString, callback);
+    this.provideOptions.set(regexString, options);
     this.providers.set(this.id, [...regexStrings]);
   }
 
@@ -1119,6 +1159,7 @@ class Server extends EventEmitter {
     const regexStrings = new Set(this.providers.get(this.id));
     regexStrings.delete(regexString);
     this.provideCallbacks.delete(regexString);
+    this.provideOptions.delete(regexString);
     if (regexStrings.size > 0) {
       this.providers.set(this.id, [...regexStrings]);
     } else {
@@ -1313,14 +1354,6 @@ class Server extends EventEmitter {
     }
   }
 
-  //  /**
-  //   * Close all outgoing peer connections.
-  //   * @return {Promise<void>}
-  //   */
-  //  async closePeerConnections() {
-  //    await Promise.all([...this.peerConnections.values()].map((peerConnection) => peerConnection.close()));
-  //  }
-
   /**
    * Update the peers Observed remove map with local peer IDs
    * @return {void}
@@ -1441,6 +1474,10 @@ class Server extends EventEmitter {
     for (const peerId of this.peerConnections.keys()) {
       peerDisconnectPromises.push(this.disconnectFromPeer(peerId));
     }
+    for (const [key, timeout] of this.provideDebounceTimeouts) {
+      clearTimeout(timeout);
+      this.provideDebounceTimeouts.delete(key);
+    }
     await Promise.all(peerDisconnectPromises);
     // await this.closePeerConnections();
     for (const reconnectTimeout of this.peerReconnectTimeouts.values()) {
@@ -1459,6 +1496,12 @@ class Server extends EventEmitter {
     } else {
       this.logger.info('Closed');
     }
+    this.provideCallbacks.clear();
+    this.provideOptions.clear();
+    for (const provideDebounceTimeout of this.provideDebounceTimeouts.values()) {
+      clearTimeout(provideDebounceTimeout);
+    }
+    this.provideDebounceTimeouts.clear();
     this.isClosing = false;
     clearInterval(this.flushInterval);
     clearInterval(this.keyFlushInterval);
@@ -1775,6 +1818,8 @@ class Server extends EventEmitter {
                                                          
                                                              
                                                                                 
+                                                          
+                                                         
                                                                       
                                                              
                                                                                                                                                                                                          
