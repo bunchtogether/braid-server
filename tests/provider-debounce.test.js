@@ -90,6 +90,7 @@ describe('Provider debounce', () => {
     await server.close();
     await stopWebsocketServer();
     await clientClosePromise;
+    expect(isActive).toEqual(false);
     server.throwOnLeakedReferences();
   });
 });
