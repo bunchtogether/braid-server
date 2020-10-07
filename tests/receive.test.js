@@ -67,6 +67,34 @@ describe(`${count} peers in a ring with a receiver`, () => {
     serverA.unreceive(key);
   });
 
+  test('Receives strings and objects', async () => {
+    const key = uuid.v4();
+    const messageA = uuid.v4();
+    const messageB = {
+      [uuid.v4()]: uuid.v4(),
+    };
+    const { server: serverA, port } = peers[0];
+    const clientA = new Client();
+    await clientA.open(`ws://localhost:${port}`, {});
+    const handleMessage = jest.fn();
+    serverA.receive(key, handleMessage);
+    await clientA.startPublishing(key);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    clientA.publish(key, messageA);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    clientA.publish(key, messageB);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(handleMessage.mock.calls.length).toEqual(2);
+    expect(handleMessage.mock.calls[0][0]).toEqual(key);
+    expect(handleMessage.mock.calls[0][2]).toEqual(messageA);
+    expect(handleMessage.mock.calls[1][0]).toEqual(key);
+    expect(handleMessage.mock.calls[1][2]).toEqual(messageB);
+    await clientA.stopPublishing(key);
+    await clientA.close();
+    serverA.unreceive(key);
+  });
+
+
   test('Triggers open and close events from a local client', async () => {
     const key = uuid.v4();
     const message = uuid.v4();
