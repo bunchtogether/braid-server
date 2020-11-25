@@ -293,13 +293,13 @@ describe(`${count} peers in a ring with a receiver`, () => {
     const clientA = new Client();
     await clientA.open(`ws://localhost:${portA}`, {});
     await clientA.startPublishing(key);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     const peerPromises = [];
     for (const peer of peers) {
       peerPromises.push(peer.server.connectToPeer(`ws://localhost:${port}`, {}));
     }
     await peerPromises;
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     expect(handleOpen.mock.calls.length).toEqual(1);
     expect(handleOpen.mock.calls[0][0]).toEqual(key);
     expect(handleOpen.mock.calls[0][1]).toEqual(expect.any(Number));
@@ -314,7 +314,7 @@ describe(`${count} peers in a ring with a receiver`, () => {
     expect(handleMessage.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
     expect(handleMessage.mock.calls[0][2]).toEqual(message);
     await clientA.stopPublishing(key);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     expect(handleClose.mock.calls.length).toEqual(1);
     expect(handleClose.mock.calls[0][0]).toEqual(key);
     expect(handleClose.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
