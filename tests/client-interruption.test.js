@@ -132,6 +132,36 @@ describe('Client Interruption', () => {
     server.throwOnLeakedReferences();
   });
 
+
+  test('Should wait for a pending credentials response before sending a subscription request', async () => {
+    const ws = await startWebsocketServer('0.0.0.0', port);
+    const stopWebsocketServer = ws[1];
+    const server = new Server(ws[0]);
+    const client = new Client();
+    const key = uuid.v4();
+    await client.open(`ws://localhost:${port}`);
+    const subscribeRequestCredentialsCheckPromise = new Promise((resolve) => {
+      client.on('subscribeRequestCredentialsCheck', (k:string) => {
+        if (k === key) {
+          resolve();
+        }
+      });
+    });
+    server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
+      while (!client.subscriptions.has(key)) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return { success: true, code: 200, message: 'OK' };
+    });
+    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
+    await client.subscribe(key);
+    await subscribeRequestCredentialsCheckPromise;
+    await client.close();
+    await server.close();
+    await stopWebsocketServer();
+    server.throwOnLeakedReferences();
+  });
+
   test('Should throw a ServerRequestError if the connection closes before the client receives  an event subscription response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
@@ -194,6 +224,35 @@ describe('Client Interruption', () => {
     server.throwOnLeakedReferences();
   });
 
+  test('Should wait for a pending credentials response before sending an event subscription request', async () => {
+    const ws = await startWebsocketServer('0.0.0.0', port);
+    const stopWebsocketServer = ws[1];
+    const server = new Server(ws[0]);
+    const client = new Client();
+    const name = uuid.v4();
+    await client.open(`ws://localhost:${port}`);
+    const eventSubscribeRequestCredentialsCheckPromise = new Promise((resolve) => {
+      client.on('eventSubscribeRequestCredentialsCheck', (n:string) => {
+        if (n === name) {
+          resolve();
+        }
+      });
+    });
+    server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
+      while (!client.eventSubscriptions.has(name)) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return { success: true, code: 200, message: 'OK' };
+    });
+    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
+    await client.addServerEventListener(name, () => {});
+    await eventSubscribeRequestCredentialsCheckPromise;
+    await client.close();
+    await server.close();
+    await stopWebsocketServer();
+    server.throwOnLeakedReferences();
+  });
+
   test('Should throw a ServerRequestError if the connection closes before the client receives a publish response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
@@ -250,6 +309,35 @@ describe('Client Interruption', () => {
       name: 'ServerRequestError',
       code: 500,
     }));
+    await client.close();
+    await server.close();
+    await stopWebsocketServer();
+    server.throwOnLeakedReferences();
+  });
+
+  test('Should wait for a pending credentials response before sending a publish request', async () => {
+    const ws = await startWebsocketServer('0.0.0.0', port);
+    const stopWebsocketServer = ws[1];
+    const server = new Server(ws[0]);
+    const client = new Client();
+    const name = uuid.v4();
+    await client.open(`ws://localhost:${port}`);
+    const publishRequestCredentialsCheckPromise = new Promise((resolve) => {
+      client.on('publishRequestCredentialsCheck', (n:string) => {
+        if (n === name) {
+          resolve();
+        }
+      });
+    });
+    server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
+      while (!client.receivers.has(name)) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return { success: true, code: 200, message: 'OK' };
+    });
+    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
+    await client.startPublishing(name);
+    await publishRequestCredentialsCheckPromise;
     await client.close();
     await server.close();
     await stopWebsocketServer();
