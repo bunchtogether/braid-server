@@ -6,6 +6,8 @@ const Client = require('@bunchtogether/braid-client');
 const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');
 
+const { ConnectionError } = Client;
+
 const port = 10000 + Math.round(Math.random() * 10000);
 
 jest.setTimeout(30000);
@@ -37,6 +39,7 @@ describe('Client Interruption', () => {
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
   });
+
   test('Should throw a ServerRequestError if the client errors before the client receives a credentials response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
@@ -70,7 +73,7 @@ describe('Client Interruption', () => {
     server.throwOnLeakedReferences();
   });
 
-  test('Should throw a ServerRequestError if the connection closes before the client receives a subscription response', async () => {
+  test('Should emit a SubscribeError if the connection closes before the client receives a subscription response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
@@ -86,19 +89,27 @@ describe('Client Interruption', () => {
         return { success: true, code: 200, message: 'OK' };
       });
     });
-    const clientSubscriptionPromise = client.subscribe(key);
+    const prematureClosePromise = new Promise((resolve, reject) => {
+      client.on('error', reject);
+    });
+    const subscriptionPromise = client.subscribe(key);
     await subscriptionReceivedPromise;
     await client.close();
-    await expect(clientSubscriptionPromise).rejects.toEqual(expect.objectContaining({
-      name: 'ServerRequestError',
+    await expect(prematureClosePromise).rejects.toEqual(expect.objectContaining({
+      name: 'SubscribeError',
+      itemKey: key,
       code: 502,
     }));
+    server.setSubscribeRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
+    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await subscriptionPromise;
+    await client.close();
     await server.close();
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
   });
 
-  test('Should throw a ServerRequestError if the client errors before the client receives a subscription response', async () => {
+  test('Should emit and throw a SubscribeError if the client errors before the client receives a subscription response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
@@ -119,14 +130,74 @@ describe('Client Interruption', () => {
         return { success: true, code: 200, message: 'OK' };
       });
     });
-    const clientSubscriptionPromise = client.subscribe(key);
+    const genericErrorPromise = new Promise((resolve, reject) => {
+      client.on('error', (error) => {
+        if (error.message === 'Example error') {
+          return;
+        }
+        reject(error);
+      });
+    });
+    const subscriptionPromise = client.subscribe(key);
     await subscriptionReceivedPromise;
     emitError();
-    await expect(clientSubscriptionPromise).rejects.toEqual(expect.objectContaining({
-      name: 'ServerRequestError',
+    await expect(genericErrorPromise).rejects.toEqual(expect.objectContaining({
+      name: 'SubscribeError',
+      itemKey: key,
+      code: 500,
+    }));
+    await expect(subscriptionPromise).rejects.toEqual(expect.objectContaining({
+      name: 'SubscribeError',
+      itemKey: key,
       code: 500,
     }));
     await client.close();
+    await server.close();
+    await stopWebsocketServer();
+    server.throwOnLeakedReferences();
+  });
+
+  test('Should emit a SubscribeError if the client has a connection error before the client receives a subscription response', async () => {
+    const ws = await startWebsocketServer('0.0.0.0', port);
+    const stopWebsocketServer = ws[1];
+    const server = new Server(ws[0]);
+    const client = new Client();
+    const key = uuid.v4();
+    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    let errorWasEmitted = false;
+    const emitError = () => {
+      client.emit('error', new ConnectionError('Example error'));
+      errorWasEmitted = true;
+    };
+    const subscriptionReceivedPromise = new Promise((resolve) => {
+      server.setSubscribeRequestHandler(async (n:string, credentials: Object) => { // eslint-disable-line no-unused-vars
+        resolve();
+        while (!errorWasEmitted) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        return { success: true, code: 200, message: 'OK' };
+      });
+    });
+    const genericErrorPromise = new Promise((resolve, reject) => {
+      client.on('error', (error) => {
+        if (error.message === 'Example error') {
+          return;
+        }
+        reject(error);
+      });
+    });
+    const subscriptionPromise = client.subscribe(key);
+    await subscriptionReceivedPromise;
+    emitError();
+    await expect(genericErrorPromise).rejects.toEqual(expect.objectContaining({
+      name: 'SubscribeError',
+      itemKey: key,
+      code: 502,
+    }));
+    await client.close();
+    server.setSubscribeRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
+    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await subscriptionPromise;
     await server.close();
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
@@ -162,7 +233,7 @@ describe('Client Interruption', () => {
     server.throwOnLeakedReferences();
   });
 
-  test('Should throw a ServerRequestError if the connection closes before the client receives  an event subscription response', async () => {
+  test('Should emit an EventSubscribeError if the connection closes before the client receives an event subscription response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
@@ -178,19 +249,27 @@ describe('Client Interruption', () => {
         return { success: true, code: 200, message: 'OK' };
       });
     });
-    const clientEventSubscriptionPromise = client.addServerEventListener(name, () => {});
+    const prematureClosePromise = new Promise((resolve, reject) => {
+      client.on('error', reject);
+    });
+    const eventSubscriptionPromise = client.addServerEventListener(name, () => {});
     await eventSubscriptionReceivedPromise;
     await client.close();
-    await expect(clientEventSubscriptionPromise).rejects.toEqual(expect.objectContaining({
-      name: 'ServerRequestError',
+    await expect(prematureClosePromise).rejects.toEqual(expect.objectContaining({
+      name: 'EventSubscribeError',
+      itemName: name,
       code: 502,
     }));
+    server.setEventSubscribeRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
+    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await eventSubscriptionPromise;
+    await client.close();
     await server.close();
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
   });
 
-  test('Should throw a ServerRequestError if the client errors before the client receives an event subscription response', async () => {
+  test('Should emit and throw an EventSubscribeError if the client errors before the client receives an event subscription response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
@@ -211,13 +290,74 @@ describe('Client Interruption', () => {
         return { success: true, code: 200, message: 'OK' };
       });
     });
-    const clientEventSubscriptionPromise = client.addServerEventListener(name, () => {});
+    const genericErrorPromise = new Promise((resolve, reject) => {
+      client.on('error', (error) => {
+        if (error.message === 'Example error') {
+          return;
+        }
+        reject(error);
+      });
+    });
+    const eventSubscriptionPromise = client.addServerEventListener(name, () => {});
     await eventSubscriptionReceivedPromise;
     emitError();
-    await expect(clientEventSubscriptionPromise).rejects.toEqual(expect.objectContaining({
-      name: 'ServerRequestError',
+    await expect(genericErrorPromise).rejects.toEqual(expect.objectContaining({
+      name: 'EventSubscribeError',
+      itemName: name,
       code: 500,
     }));
+    await expect(eventSubscriptionPromise).rejects.toEqual(expect.objectContaining({
+      name: 'EventSubscribeError',
+      itemName: name,
+      code: 500,
+    }));
+    await client.close();
+    await server.close();
+    await stopWebsocketServer();
+    server.throwOnLeakedReferences();
+  });
+
+  test('Should emit an EventSubscribeError if the client receives a connection error before the client receives an event subscription response', async () => {
+    const ws = await startWebsocketServer('0.0.0.0', port);
+    const stopWebsocketServer = ws[1];
+    const server = new Server(ws[0]);
+    const client = new Client();
+    const name = uuid.v4();
+    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    let errorWasEmitted = false;
+    const emitError = () => {
+      client.emit('error', new ConnectionError('Example error'));
+      errorWasEmitted = true;
+    };
+    const eventSubscriptionReceivedPromise = new Promise((resolve) => {
+      server.setEventSubscribeRequestHandler(async (k:string, credentials: Object) => { // eslint-disable-line no-unused-vars
+        resolve();
+        while (!errorWasEmitted) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        return { success: true, code: 200, message: 'OK' };
+      });
+    });
+    const genericErrorPromise = new Promise((resolve, reject) => {
+      client.on('error', (error) => {
+        if (error.message === 'Example error') {
+          return;
+        }
+        reject(error);
+      });
+    });
+    const eventSubscriptionPromise = client.addServerEventListener(name, () => {});
+    await eventSubscriptionReceivedPromise;
+    emitError();
+    await expect(genericErrorPromise).rejects.toEqual(expect.objectContaining({
+      name: 'EventSubscribeError',
+      itemName: name,
+      code: 502,
+    }));
+    await client.close();
+    server.setEventSubscribeRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
+    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await eventSubscriptionPromise;
     await client.close();
     await server.close();
     await stopWebsocketServer();
@@ -253,7 +393,7 @@ describe('Client Interruption', () => {
     server.throwOnLeakedReferences();
   });
 
-  test('Should throw a ServerRequestError if the connection closes before the client receives a publish response', async () => {
+  test('Should emit a PublishError if the connection closes before the client receives a publish response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
@@ -269,19 +409,27 @@ describe('Client Interruption', () => {
         return { success: true, code: 200, message: 'OK' };
       });
     });
-    const clientPublishPromise = client.startPublishing(name);
+    const prematureClosePromise = new Promise((resolve, reject) => {
+      client.on('error', reject);
+    });
+    const publishPromise = client.startPublishing(name);
     await publishReceivedPromise;
     await client.close();
-    await expect(clientPublishPromise).rejects.toEqual(expect.objectContaining({
-      name: 'ServerRequestError',
+    await expect(prematureClosePromise).rejects.toEqual(expect.objectContaining({
+      name: 'PublishError',
+      itemName: name,
       code: 502,
     }));
+    server.setPublishRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
+    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await publishPromise;
+    await client.close();
     await server.close();
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
   });
 
-  test('Should throw a ServerRequestError if the client errors before the client receives a publish response', async () => {
+  test('Should emit and throw a PublishError if the client errors before the client receives a publish response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
@@ -302,13 +450,74 @@ describe('Client Interruption', () => {
         return { success: true, code: 200, message: 'OK' };
       });
     });
-    const clientPublishPromise = client.startPublishing(name);
+    const genericErrorPromise = new Promise((resolve, reject) => {
+      client.on('error', (error) => {
+        if (error.message === 'Example error') {
+          return;
+        }
+        reject(error);
+      });
+    });
+    const publishPromise = client.startPublishing(name);
     await publishReceivedPromise;
     emitError();
-    await expect(clientPublishPromise).rejects.toEqual(expect.objectContaining({
-      name: 'ServerRequestError',
+    await expect(genericErrorPromise).rejects.toEqual(expect.objectContaining({
+      name: 'PublishError',
+      itemName: name,
       code: 500,
     }));
+    await expect(publishPromise).rejects.toEqual(expect.objectContaining({
+      name: 'PublishError',
+      itemName: name,
+      code: 500,
+    }));
+    await client.close();
+    await server.close();
+    await stopWebsocketServer();
+    server.throwOnLeakedReferences();
+  });
+
+  test('Should emit a PublishError if the client receives a connection error before the client receives a publish response', async () => {
+    const ws = await startWebsocketServer('0.0.0.0', port);
+    const stopWebsocketServer = ws[1];
+    const server = new Server(ws[0]);
+    const client = new Client();
+    const name = uuid.v4();
+    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    let errorWasEmitted = false;
+    const emitError = () => {
+      client.emit('error', new ConnectionError('Example error'));
+      errorWasEmitted = true;
+    };
+    const publishReceivedPromise = new Promise((resolve) => {
+      server.setPublishRequestHandler(async (n:string, credentials: Object) => { // eslint-disable-line no-unused-vars
+        resolve();
+        while (!errorWasEmitted) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        return { success: true, code: 200, message: 'OK' };
+      });
+    });
+    const genericErrorPromise = new Promise((resolve, reject) => {
+      client.on('error', (error) => {
+        if (error.message === 'Example error') {
+          return;
+        }
+        reject(error);
+      });
+    });
+    const publishPromise = client.startPublishing(name);
+    await publishReceivedPromise;
+    emitError();
+    await expect(genericErrorPromise).rejects.toEqual(expect.objectContaining({
+      name: 'PublishError',
+      itemName: name,
+      code: 502,
+    }));
+    await client.close();
+    server.setPublishRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
+    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await publishPromise;
     await client.close();
     await server.close();
     await stopWebsocketServer();

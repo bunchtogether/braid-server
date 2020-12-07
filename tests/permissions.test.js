@@ -44,6 +44,8 @@ describe('Permissions', () => {
       }
       return { success: false, code: 400, message: 'Not allowed' };
     });
+    // Add error handler to avoid throwing in test
+    clientB.on('error', () => {});
     const subscribePromiseA = clientA.subscribe(key);
     const subscribePromiseB = clientB.subscribe(key);
     clientA.open(`ws://localhost:${port}`, { id: clientIdA });
