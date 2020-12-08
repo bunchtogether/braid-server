@@ -107,6 +107,8 @@ See also:
         -   [Parameters](#parameters-42)
     -   [hasPeer](#haspeer)
         -   [Parameters](#parameters-43)
+    -   [waitForSocketCredentialQueue](#waitforsocketcredentialqueue)
+        -   [Parameters](#parameters-44)
 
 ### Server
 
@@ -204,7 +206,7 @@ Top level handler for incoming credentials messages. Uses the default/custom cre
 ##### Parameters
 
 -   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID from which the credentials were received
--   `existingCredentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Existing credentials object
+-   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object
 -   `clientCredentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object provided by the client
 
 Returns **void** 
@@ -616,3 +618,13 @@ Check if peer exists
 -   `peerId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Peer ID
 
 Returns **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** 
+
+#### waitForSocketCredentialQueue
+
+Wait for any queued auth requests associated with the socket to complete
+
+##### Parameters
+
+-   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID
+
+Returns **void** 
