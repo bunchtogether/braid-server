@@ -4,6 +4,8 @@ import type { UWSTemplatedApp, UWSWebSocket } from './uWebSockets';
 
 const uuid = require('uuid');
 const crypto = require('crypto');
+const { merge } = require('lodash');
+const { default: PQueue } = require('p-queue');
 const farmhash = require('farmhash');
 const { hash32 } = require('@bunchtogether/hash-object');
 const { ObservedRemoveMap, ObservedRemoveSet } = require('observed-remove');
@@ -153,6 +155,11 @@ class Server extends EventEmitter {
     //   Value: Socket object
     this.sockets = new Map();
 
+    // Promise queue of incoming crendential authentication requests
+    //   Key: Socket ID
+    //   Value: Promise Queue
+    this.socketCredentialQueues = new Map();
+
     // Map of Peer IDs to Socket IDs
     //   Source: Socket ID
     //   Target: Peer ID
@@ -177,11 +184,6 @@ class Server extends EventEmitter {
     //   Source: Socket ID
     //   Target: Event Name
     this.eventSubscriptions = new DirectedGraphMap();
-
-    // Active credential handler promises
-    //   Key: Socket ID
-    //   Value: Promise<void>
-    this.credentialsHandlerPromises = new Map();
 
     // Keys without subscribers that should be flushed from data
     //   Key: key
@@ -662,24 +664,32 @@ class Server extends EventEmitter {
   /**
    * Top level handler for incoming credentials messages. Uses the default/custom credentialsHandler method to validate.
    * @param {number} socketId Socket ID from which the credentials were received
-   * @param {Object} existingCredentials Existing credentials object
+   * @param {Object} credentials Credentials object
    * @param {Object} clientCredentials Credentials object provided by the client
    * @return {void}
    */
-  handleCredentialsRequest(socketId: number, existingCredentials: Object, clientCredentials: Object) {
-    const promise = this._handleCredentialsRequest(socketId, existingCredentials, clientCredentials); // eslint-disable-line no-underscore-dangle
-    this.credentialsHandlerPromises.set(socketId, promise.then(() => {
-      this.credentialsHandlerPromises.delete(socketId);
-    }).catch(() => {
-      this.credentialsHandlerPromises.delete(socketId);
-    }));
+  handleCredentialsRequest(socketId: number, credentials: Object, clientCredentials: Object) {
+    let queue = this.socketCredentialQueues.get(socketId);
+    if (!queue) {
+      const newQueue = new PQueue({ concurrency: 1 });
+      this.socketCredentialQueues.set(socketId, newQueue);
+      queue = newQueue;
+      setImmediate(() => {
+        newQueue.onIdle().then(() => {
+          this.socketCredentialQueues.delete(socketId);
+        });
+      });
+    }
+    queue.add(() => this._handleCredentialsRequest(socketId, credentials, clientCredentials)); // eslint-disable-line no-underscore-dangle
   }
 
-  async _handleCredentialsRequest(socketId: number, existingCredentials: Object, clientCredentials: Object) {
-    if (existingCredentials && existingCredentials.client) {
-      this.emit('presence', existingCredentials, false);
+  async _handleCredentialsRequest(socketId: number, credentials: Object, clientCredentials: Object) {
+    if (credentials.client) {
+      this.emit('presence', credentials, false);
+      // Wait a tick for presence events
+      await new Promise((resolve) => setImmediate(resolve));
     }
-    const credentials = Object.assign({}, existingCredentials, { client: clientCredentials });
+    merge(credentials, { client: clientCredentials });
     let response;
     try {
       response = await this.credentialsHandler(credentials);
@@ -699,7 +709,6 @@ class Server extends EventEmitter {
     }
     if (response.success) {
       this.logger.info(`Credentials from ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) accepted`);
-      ws.credentials = credentials; // eslint-disable-line no-param-reassign
       this.emit('presence', credentials, true);
     } else {
       this.logger.info(`Credentials from ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) rejected`);
@@ -738,8 +747,7 @@ class Server extends EventEmitter {
       wsA.send(getArrayBuffer(encode(unencoded)), true, false);
       return;
     }
-    // Wait for any credential handler operations to complete
-    await this.credentialsHandlerPromises.get(socketId);
+    await this.waitForSocketCredentialQueue(socketId);
     let response;
     try {
       response = await this.peerRequestHandler(credentials);
@@ -775,8 +783,7 @@ class Server extends EventEmitter {
    * @return {void}
    */
   async handleSubscribeRequest(socketId:number, credentials:Object, key:string) {
-    // Wait for any credential handler operations to complete
-    await this.credentialsHandlerPromises.get(socketId);
+    await this.waitForSocketCredentialQueue(socketId);
     let response;
     try {
       response = await this.subscribeRequestHandler(key, credentials);
@@ -809,8 +816,7 @@ class Server extends EventEmitter {
    * @return {void}
    */
   async handleEventSubscribeRequest(socketId:number, credentials:Object, name:string) {
-    // Wait for any credential handler operations to complete
-    await this.credentialsHandlerPromises.get(socketId);
+    await this.waitForSocketCredentialQueue(socketId);
     let response;
     try {
       response = await this.eventSubscribeRequestHandler(name, credentials);
@@ -843,8 +849,7 @@ class Server extends EventEmitter {
    * @return {void}
    */
   async handlePublishRequest(socketId:number, credentials:Object, key:string) {
-    // Wait for any credential handler operations to complete
-    await this.credentialsHandlerPromises.get(socketId);
+    await this.waitForSocketCredentialQueue(socketId);
     let response;
     try {
       response = await this.publishRequestHandler(key, credentials);
@@ -1805,6 +1810,20 @@ class Server extends EventEmitter {
     return this.peerSockets.hasTarget(peerId) || this.peerConnections.has(peerId);
   }
 
+  /**
+   * Wait for any queued auth requests associated with the socket to complete
+   * @param {number} socketId Socket ID
+   * @return {void}
+   */
+  async waitForSocketCredentialQueue(socketId:number) {
+    // Wait for any credential handler operations to complete
+    const queue = this.socketCredentialQueues.get(socketId);
+    if (queue) {
+      this.logger.info(`Waiting for socket ${socketId} credential queue with size ${queue.size} and ${queue.pending} pending`);
+      await queue.onIdle();
+    }
+  }
+
   declare isClosing: boolean;
   declare id: number;
   declare flushInterval: IntervalID;
@@ -1816,6 +1835,7 @@ class Server extends EventEmitter {
   declare peerSockets:DirectedGraphMap<number, number>;
   declare peerConnections:Map<number, PeerConnection>;
   declare sockets:Map<number, UWSWebSocket>;
+  declare socketCredentialQueues:Map<number, PQueue>;
   declare data:ObservedRemoveMap<string, any>;
   declare peers:ObservedRemoveMap<number, Array<number>>;
   declare providers:ObservedRemoveMap<number, Array<string>>;
@@ -1833,7 +1853,6 @@ class Server extends EventEmitter {
   declare peerSubscriptionMap:Map<string, Set<number>>;
   declare providerRegexes: Map<number, Array<[string, RegExp]>>;
   declare receiverRegexes: Map<number, Map<string, RegExp>>;
-  declare credentialsHandlerPromises: Map<number, Promise<void>>;
   declare peerRequestHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   declare credentialsHandler: (credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   declare subscribeRequestHandler: (key:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;

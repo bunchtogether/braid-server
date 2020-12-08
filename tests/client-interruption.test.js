@@ -13,6 +13,82 @@ const port = 10000 + Math.round(Math.random() * 10000);
 jest.setTimeout(30000);
 
 describe('Client Interruption', () => {
+  test('Should handle credentials being sent twice in succession', async () => {
+    const ws = await startWebsocketServer('0.0.0.0', port);
+    const stopWebsocketServer = ws[1];
+    const server = new Server(ws[0]);
+    const client = new Client();
+
+    let credentialSubmissionCount = 0;
+    const keyA = uuid.v4();
+    const valueA = uuid.v4();
+    const keyB = uuid.v4();
+    const valueB = uuid.v4();
+    const credentialsReceivedPromise = new Promise((resolve, reject) => {
+      server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
+        // console.log(credentialSubmissionCount, JSON.stringify(credentials));
+        await new Promise((r) => setTimeout(r, 100));
+        try {
+          if (credentialSubmissionCount === 0) {
+            // console.log(credentials);
+            expect(credentials).toEqual(expect.objectContaining({
+              ip: expect.any(String),
+              client: {
+                [keyA]: valueA,
+              },
+            }));
+            credentialSubmissionCount = 1;
+          } else if (credentialSubmissionCount === 1) {
+            // console.log(credentials);
+            expect(credentials).toEqual(expect.objectContaining({
+              ip: expect.any(String),
+              client: {
+                [keyA]: valueA,
+                [keyB]: valueB,
+              },
+            }));
+            credentialSubmissionCount = 2;
+          } else {
+            throw new Error('Unexpected credentials check');
+          }
+        } catch (error) {
+          reject(error);
+          return { success: false, code: 403, message: 'Expect failed' };
+        }
+        resolve();
+        return { success: true, code: 200, message: 'OK' };
+      });
+    });
+    const subscriptionPromise = new Promise((resolve, reject) => {
+      server.setSubscribeRequestHandler(async (n:string, credentials: Object) => { // eslint-disable-line no-unused-vars
+        try {
+          expect(credentials).toEqual(expect.objectContaining({
+            ip: expect.any(String),
+            client: {
+              [keyA]: valueA,
+              [keyB]: valueB,
+            },
+          }));
+        } catch (error) {
+          reject(error);
+          return { success: false, code: 403, message: 'Expect failed' };
+        }
+        resolve();
+        return { success: true, code: 200, message: 'OK' };
+      });
+    });
+    await client.open(`ws://localhost:${port}`);
+    client.sendCredentials({ [keyA]: valueA });
+    client.sendCredentials({ [keyB]: valueB });
+    client.subscribe(uuid.v4());
+    await credentialsReceivedPromise;
+    await subscriptionPromise;
+    await client.close();
+    await server.close();
+    await stopWebsocketServer();
+    server.throwOnLeakedReferences();
+  });
+
   test('Should throw a ServerRequestError if the connection closes before the client receives a credentials response', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
