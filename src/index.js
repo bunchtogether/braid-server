@@ -666,20 +666,23 @@ class Server extends EventEmitter {
    * @param {Object} clientCredentials Credentials object provided by the client
    * @return {void}
    */
-  async handleCredentialsRequest(socketId: number, existingCredentials: Object, clientCredentials: Object) {
+  handleCredentialsRequest(socketId: number, existingCredentials: Object, clientCredentials: Object) {
+    const promise = this._handleCredentialsRequest(socketId, existingCredentials, clientCredentials); // eslint-disable-line no-underscore-dangle
+    this.credentialsHandlerPromises.set(socketId, promise.then(() => {
+      this.credentialsHandlerPromises.delete(socketId);
+    }).catch(() => {
+      this.credentialsHandlerPromises.delete(socketId);
+    }));
+  }
+
+  async _handleCredentialsRequest(socketId: number, existingCredentials: Object, clientCredentials: Object) {
     if (existingCredentials && existingCredentials.client) {
       this.emit('presence', existingCredentials, false);
     }
     const credentials = Object.assign({}, existingCredentials, { client: clientCredentials });
     let response;
     try {
-      const credentialsHandlerPromise = this.credentialsHandler(credentials);
-      this.credentialsHandlerPromises.set(socketId, credentialsHandlerPromise.then(() => {
-        this.credentialsHandlerPromises.delete(socketId);
-      }).catch(() => {
-        this.credentialsHandlerPromises.delete(socketId);
-      }));
-      response = await credentialsHandlerPromise;
+      response = await this.credentialsHandler(credentials);
     } catch (error) {
       if (error.stack) {
         this.logger.error('Credentials request handler error:');
