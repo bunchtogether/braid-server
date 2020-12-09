@@ -34,6 +34,7 @@ describe('Client Interruption', () => {
     await promiseB;
     expect(credentialSubmissionCount).toEqual(1);
     expect(openCount).toEqual(1);
+    await client.close();
     await server.close();
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
@@ -275,29 +276,6 @@ describe('Client Interruption', () => {
     server.throwOnLeakedReferences();
   });
 
-
-  test('Should queue and discard duplicate, synchronous calls to sendCredentials()', async () => {
-    const ws = await startWebsocketServer('0.0.0.0', port);
-    const stopWebsocketServer = ws[1];
-    const server = new Server(ws[0]);
-    const client = new Client();
-    let credentialSubmissionCount = 0;
-    server.setCredentialsHandler(async () => { // eslint-disable-line no-unused-vars
-      credentialSubmissionCount += 1;
-      return { success: true, code: 200, message: 'OK' };
-    });
-    await client.open(`ws://localhost:${port}`);
-    const credentials = { [uuid.v4()]: uuid.v4() };
-    const promiseA = client.sendCredentials(credentials);
-    const promiseB = client.sendCredentials(credentials);
-    await promiseA;
-    await promiseB;
-    expect(credentialSubmissionCount).toEqual(1);
-    await server.close();
-    await stopWebsocketServer();
-    server.throwOnLeakedReferences();
-  });
-
   test('Should queue synchronous calls to sendCredentials()', async () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stopWebsocketServer = ws[1];
@@ -314,6 +292,7 @@ describe('Client Interruption', () => {
     await promiseA;
     await promiseB;
     expect(credentialSubmissionCount).toEqual(2);
+    await client.close();
     await server.close();
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
