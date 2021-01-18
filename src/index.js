@@ -665,10 +665,10 @@ class Server extends EventEmitter {
    * Top level handler for incoming credentials messages. Uses the default/custom credentialsHandler method to validate.
    * @param {number} socketId Socket ID from which the credentials were received
    * @param {Object} credentials Credentials object
-   * @param {Object} clientCredentials Credentials object provided by the client
+   * @param {Object} newClientCredentials Credentials object provided by the client
    * @return {void}
    */
-  handleCredentialsRequest(socketId: number, credentials: Object, clientCredentials: Object) {
+  handleCredentialsRequest(socketId: number, credentials: Object, newClientCredentials: Object) {
     let queue = this.socketCredentialQueues.get(socketId);
     if (!queue) {
       const newQueue = new PQueue({ concurrency: 1 });
@@ -680,16 +680,24 @@ class Server extends EventEmitter {
         });
       });
     }
-    queue.add(() => this._handleCredentialsRequest(socketId, credentials, clientCredentials)); // eslint-disable-line no-underscore-dangle
+    queue.add(() => this._handleCredentialsRequest(socketId, credentials, newClientCredentials)); // eslint-disable-line no-underscore-dangle
   }
 
-  async _handleCredentialsRequest(socketId: number, credentials: Object, clientCredentials: Object) {
+  async _handleCredentialsRequest(socketId: number, credentials: Object, newClientCredentials: Object) {
     if (credentials.client) {
       this.emit('presence', credentials, false);
       // Wait a tick for presence events
       await new Promise((resolve) => setImmediate(resolve));
     }
-    merge(credentials, { client: clientCredentials });
+    const clientCredentials = credentials.client;
+    if (typeof clientCredentials === 'undefined') {
+      credentials.client = newClientCredentials; // eslint-disable-line  no-param-reassign
+    } else {
+      for (const key of Object.getOwnPropertyNames(clientCredentials)) {
+        delete clientCredentials[key];
+      }
+      merge(clientCredentials, newClientCredentials);
+    }
     let response;
     try {
       response = await this.credentialsHandler(credentials);

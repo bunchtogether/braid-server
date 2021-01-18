@@ -71,7 +71,6 @@ describe('Client Interruption', () => {
             expect(credentials).toEqual(expect.objectContaining({
               ip: expect.any(String),
               client: {
-                [keyA]: valueA,
                 [keyB]: valueB,
               },
             }));
@@ -94,7 +93,6 @@ describe('Client Interruption', () => {
           expect(credentials).toEqual(expect.objectContaining({
             ip: expect.any(String),
             client: {
-              [keyA]: valueA,
               [keyB]: valueB,
             },
           }));
@@ -230,7 +228,6 @@ describe('Client Interruption', () => {
             expect(credentials).toEqual(expect.objectContaining({
               ip: expect.any(String),
               client: {
-                [keyA]: valueA,
                 [keyB]: valueB,
               },
             }));
@@ -252,7 +249,6 @@ describe('Client Interruption', () => {
           expect(credentials).toEqual(expect.objectContaining({
             ip: expect.any(String),
             client: {
-              [keyA]: valueA,
               [keyB]: valueB,
             },
           }));
