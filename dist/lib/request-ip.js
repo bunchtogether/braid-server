@@ -10,13 +10,16 @@ const correctForm = (s        ) => {
   if (!s) {
     return null;
   }
-  const v4 = new Address4(s);
-  if (v4.isValid()) {
+  try {
+    const v4 = new Address4(s);
     return v4.correctForm();
-  }
-  const v6 = new Address6(s);
-  if (v6.isValid()) {
-    return v6.correctForm();
+  } catch (error) {
+    try {
+      const v6 = new Address6(s);
+      return v6.correctForm();
+    } catch (error2) {
+      console.log(`Unable to parse address ${s}: ${error.message}, ${error2.message}`);
+    }
   }
   return null;
 };
@@ -95,14 +98,17 @@ module.exports = (ws              , req               ) => {
     return ipString;
   }
 
-  const v6 = Address6.fromUnsignedByteArray(new Uint8Array(ws.getRemoteAddress()));
-  const v4 = v6.to4();
-  if (v4.isValid()) {
-    return v4.correctForm();
+  let v6;
+  try {
+    v6 = Address6.fromUnsignedByteArray(new Uint8Array(ws.getRemoteAddress()));
+  } catch (error) {
+    return undefined;
   }
-  if (v6.isValid()) {
+  try {
+    const v4 = v6.to4();
+    return v4.correctForm();
+  } catch (error) {
     return v6.correctForm();
   }
-  return undefined;
 };
 

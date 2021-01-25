@@ -207,7 +207,7 @@ Top level handler for incoming credentials messages. Uses the default/custom cre
 
 -   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID from which the credentials were received
 -   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object
--   `clientCredentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object provided by the client
+-   `newClientCredentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object provided by the client
 
 Returns **void** 
 
