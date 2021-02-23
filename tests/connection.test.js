@@ -43,8 +43,9 @@ describe('Connection', () => {
 
   test('Should handle credentials and emit an presence online event', async () => {
     const emitPresencePromise = new Promise((resolve) => {
-      const handlePresence = (credentials, online) => {
+      const handlePresence = (credentials, online, socketId) => {
         if (online) {
+          expect(socketId).toEqual(expect.any(Number));
           expect(credentials).toEqual({ client: credentialsValue, ip: '127.0.0.1' });
           server.removeListener('presence', handlePresence);
           resolve();
@@ -69,8 +70,9 @@ describe('Connection', () => {
 
   test('Should emit an presence offline event', async () => {
     const emitPresencePromise = new Promise((resolve) => {
-      const handlePresence = (credentials, online) => {
+      const handlePresence = (credentials, online, socketId) => {
         if (!online) {
+          expect(socketId).toEqual(expect.any(Number));
           expect(credentials).toEqual({ client: credentialsValue, ip: '127.0.0.1' });
           server.removeListener('presence', handlePresence);
           resolve();
