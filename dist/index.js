@@ -461,7 +461,7 @@ class Server extends EventEmitter {
         this.logger.info(`Closed socket with ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}), code ${code}`);
         const { credentials } = ws;
         if (credentials && credentials.client) {
-          this.emit('presence', credentials, false, socketId);
+          this.emit('presence', credentials, false, socketId, false);
         }
         this.emit('close', socketId);
         delete ws.id; // eslint-disable-line no-param-reassign
@@ -684,8 +684,9 @@ class Server extends EventEmitter {
   }
 
   async _handleCredentialsRequest(socketId        , credentials        , newClientCredentials        ) {
-    if (credentials.client) {
-      this.emit('presence', credentials, false, socketId);
+    const credentialsDidUpdate = !!credentials.client;
+    if (credentialsDidUpdate) {
+      this.emit('presence', credentials, false, socketId, credentialsDidUpdate);
       // Wait a tick for presence events
       await new Promise((resolve) => setImmediate(resolve));
     }
@@ -717,7 +718,7 @@ class Server extends EventEmitter {
     }
     if (response.success) {
       this.logger.info(`Credentials from ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) accepted`);
-      this.emit('presence', credentials, true, socketId);
+      this.emit('presence', credentials, true, socketId, credentialsDidUpdate);
     } else {
       this.logger.info(`Credentials from ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) rejected`);
     }

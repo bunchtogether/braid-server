@@ -1,7 +1,6 @@
 // @flow
 
 const uuid = require('uuid');
-const { isEqual } = require('lodash');
 const Client = require('@bunchtogether/braid-client');
 const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');
@@ -14,7 +13,11 @@ describe('Connection', () => {
   let stopWebsocketServer;
   let server;
   let client;
-  const credentialsValue = {
+  const credentialsValueA = {
+    [uuid.v4()]: uuid.v4(),
+    [uuid.v4()]: uuid.v4(),
+  };
+  const credentialsValueB = {
     [uuid.v4()]: uuid.v4(),
     [uuid.v4()]: uuid.v4(),
   };
@@ -32,55 +35,90 @@ describe('Connection', () => {
     server.throwOnLeakedReferences();
   });
 
-  test('Should open the connection', async () => {
+  test('Should emit an open event when a new connection is opened, and a close event when the connection is closed', async () => {
     const openPromise = new Promise((resolve, reject) => {
       server.once('open', resolve);
       server.once('error', reject);
     });
+    const closePromise = new Promise((resolve, reject) => {
+      server.once('close', resolve);
+      server.once('error', reject);
+    });
     await client.open(`ws://localhost:${port}`);
+    await openPromise;
+    await client.close();
+    await closePromise;
+  });
+
+  test('Should emit an online event when opening a connection with credentials', async () => {
+    const openPromise = new Promise((resolve, reject) => {
+      server.once('open', resolve);
+      server.once('error', reject);
+    });
+    await new Promise((resolve) => {
+      const handlePresence = (credentials, online, socketId, credentialsDidUpdate) => {
+        if (online) {
+          expect(socketId).toEqual(expect.any(Number));
+          expect(credentialsDidUpdate).toEqual(false);
+          expect(credentials).toEqual({ client: credentialsValueA, ip: '127.0.0.1' });
+          server.removeListener('presence', handlePresence);
+          resolve();
+        }
+      };
+      server.on('presence', handlePresence);
+      client.open(`ws://localhost:${port}`, credentialsValueA);
+    });
     await openPromise;
   });
 
-  test('Should handle credentials and emit an presence online event', async () => {
-    const emitPresencePromise = new Promise((resolve) => {
-      const handlePresence = (credentials, online, socketId) => {
-        if (online) {
-          expect(socketId).toEqual(expect.any(Number));
-          expect(credentials).toEqual({ client: credentialsValue, ip: '127.0.0.1' });
-          server.removeListener('presence', handlePresence);
-          resolve();
-        }
-      };
-      server.on('presence', handlePresence);
-    });
-    const handleCredentialsPromise = new Promise((resolve, reject) => {
-      server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
-        if (isEqual({ client: credentialsValue, ip: '127.0.0.1' }, credentials)) {
-          resolve();
-          return { success: true, code: 200, message: 'OK' };
-        }
-        reject('Incorrect credentials');
-        return { success: false, code: 400, message: 'Incorrect credentials' };
-      });
-    });
-    await client.sendCredentials(credentialsValue);
-    await handleCredentialsPromise;
-    await emitPresencePromise;
-  });
-
-  test('Should emit an presence offline event', async () => {
-    const emitPresencePromise = new Promise((resolve) => {
-      const handlePresence = (credentials, online, socketId) => {
+  test('Should emit online and offline event, indicating credentials were updated when credentials are updated', async () => {
+    const offlinePromise = new Promise((resolve) => {
+      const handlePresence = (credentials, online, socketId, credentialsDidUpdate) => {
         if (!online) {
           expect(socketId).toEqual(expect.any(Number));
-          expect(credentials).toEqual({ client: credentialsValue, ip: '127.0.0.1' });
+          expect(credentialsDidUpdate).toEqual(true);
+          expect(credentials).toEqual({ client: credentialsValueA, ip: '127.0.0.1' });
           server.removeListener('presence', handlePresence);
           resolve();
         }
       };
       server.on('presence', handlePresence);
     });
-    await client.close();
-    await emitPresencePromise;
+    const onlinePromise = new Promise((resolve) => {
+      const handlePresence = (credentials, online, socketId, credentialsDidUpdate) => {
+        if (online) {
+          expect(socketId).toEqual(expect.any(Number));
+          expect(credentialsDidUpdate).toEqual(true);
+          expect(credentials).toEqual({ client: credentialsValueB, ip: '127.0.0.1' });
+          server.removeListener('presence', handlePresence);
+          resolve();
+        }
+      };
+      server.on('presence', handlePresence);
+    });
+    client.sendCredentials(credentialsValueB);
+    await offlinePromise;
+    await onlinePromise;
+  });
+
+  test('Should emit an offline event when closing a connection with credentials', async () => {
+    const closePromise = new Promise((resolve, reject) => {
+      server.once('close', resolve);
+      server.once('error', reject);
+    });
+    await new Promise((resolve) => {
+      const handlePresence = (credentials, online, socketId, credentialsDidUpdate) => {
+        if (!online) {
+          expect(socketId).toEqual(expect.any(Number));
+          expect(credentialsDidUpdate).toEqual(false);
+          expect(credentials).toEqual({ client: credentialsValueB, ip: '127.0.0.1' });
+          server.removeListener('presence', handlePresence);
+          resolve();
+        }
+      };
+      server.on('presence', handlePresence);
+      client.close();
+    });
+    await closePromise;
   });
 });
