@@ -52,7 +52,6 @@ function randomInteger() {
   return crypto.randomBytes(4).readUInt32BE(0, true);
 }
 
-
 /**
  * Class representing a Braid Server
  */
@@ -63,7 +62,7 @@ class Server extends EventEmitter {
    * @param {UWSRecognizedString} websocketPattern uWebSockets.js websocket pattern
    * @param {UWSWebSocketBehavior} websocketBehavior uWebSockets.js websocket behavior and options
    */
-  constructor(uwsServer:UWSTemplatedApp, websocketPattern?:string = '/*', websocketBehavior?: Object = { compression: 0, maxPayloadLength: 8 * 1024 * 1024, idleTimeout: 10 }) {
+  constructor(uwsServer:UWSTemplatedApp, websocketPattern?:string = '/*', websocketBehavior?: Object = { compression: 0, maxPayloadLength: 8 * 1024 * 1024, idleTimeout: 56 }) {
     super();
 
     this.messageHashes = new LruCache({ max: 500 });
@@ -390,82 +389,131 @@ class Server extends EventEmitter {
       }
     });
     const options = Object.assign({}, websocketBehavior, {
-      open: (ws, req) => { // eslint-disable-line no-unused-vars
-        const socketId = randomInteger();
-        ws.id = socketId; // eslint-disable-line no-param-reassign
-        ws.credentials = { // eslint-disable-line no-param-reassign
-          ip: requestIp(ws, req),
-        };
-        this.sockets.set(socketId, ws);
-        this.emit('open', socketId);
-        this.logger.info(`Opened socket with ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId})`);
+      upgrade: (res, req, context) => { // eslint-disable-line no-unused-vars
+        try {
+          const socketId = randomInteger();
+          const socketIp = requestIp(res, req);
+          const socketOptions = {
+            id: socketId,
+            credentials: {
+              ip: socketIp,
+            },
+          };
+          res.upgrade(socketOptions, req.getHeader('sec-websocket-key'), req.getHeader('sec-websocket-protocol'), req.getHeader('sec-websocket-extensions'), context);
+          this.logger.info(`Upgraded socket at ${socketIp || 'with unknown IP'}`);
+        } catch (error) {
+          if (error.stack) {
+            this.logger.error('Error during socket upgrade:');
+            error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+          } else {
+            this.logger.error(`Error during socket upgrade: ${error.message}`);
+          }
+        }
       },
-      message: (ws, data, isBinary) => {
-        if (this.isClosing) {
-          return;
-        }
+      open: (ws) => { // eslint-disable-line no-unused-vars
         const socketId = ws.id;
-        if (!socketId) {
-          this.logger.error('Received message without socket ID');
-          return;
-        }
-        if (!isBinary) {
-          this.logger.error(`Received non-binary message from ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}): ${data.toString()}`);
-          return;
-        }
-        const message = decode(data);
-        if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage) {
-          if (!this.peerSockets.hasSource(socketId)) {
-            this.logger.error(`Received dump from non-peer ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId})`);
+        const { ip } = ws.credentials || {};
+        try {
+          if (!socketId) {
+            this.logger.error('Received socket open without socket ID');
             return;
           }
-          for (const peerId of this.peerSockets.getTargets(socketId)) {
-            this.handleMessage(message, peerId);
+          this.sockets.set(socketId, ws);
+          this.emit('open', socketId);
+          this.logger.info(`Opened socket at ${ip || 'unknown IP'} (${socketId})`);
+        } catch (error) {
+          if (error.stack) {
+            this.logger.error('Error during socket open:');
+            error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+          } else {
+            this.logger.error(`Error during socket open: ${error.message}`);
           }
         }
-        if (message instanceof Credentials) {
-          this.handleCredentialsRequest(socketId, ws.credentials, message.value);
-        } else if (message instanceof PeerRequest) {
-          this.handlePeerRequest(socketId, ws.credentials, message.value);
-        } else if (message instanceof SubscribeRequest) {
-          this.handleSubscribeRequest(socketId, ws.credentials, message.value);
-        } else if (message instanceof Unsubscribe) {
-          this.removeSubscription(socketId, message.value);
-        } else if (message instanceof EventSubscribeRequest) {
-          this.handleEventSubscribeRequest(socketId, ws.credentials, message.value);
-        } else if (message instanceof EventUnsubscribe) {
-          this.removeEventSubscription(socketId, message.value);
-        } else if (message instanceof PublishRequest) {
-          this.handlePublishRequest(socketId, ws.credentials, message.value);
-        } else if (message instanceof Unpublish) {
-          this.removePublisher(socketId, message.value);
-        } else if (message instanceof PublisherMessage) {
-          this.handlePublisherMessage(message.key, socketId, message.message);
+      },
+      message: (ws, data, isBinary) => {
+        const socketId = ws.id;
+        try {
+          if (this.isClosing) {
+            return;
+          }
+          if (!socketId) {
+            this.logger.error('Received message without socket ID');
+            return;
+          }
+          if (!isBinary) {
+            this.logger.error(`Received non-binary message from ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId}): ${data.toString()}`);
+            return;
+          }
+          const message = decode(data);
+          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage) {
+            if (!this.peerSockets.hasSource(socketId)) {
+              this.logger.error(`Received dump from non-peer at ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId})`);
+              return;
+            }
+            for (const peerId of this.peerSockets.getTargets(socketId)) {
+              this.handleMessage(message, peerId);
+            }
+          }
+          if (message instanceof Credentials) {
+            this.handleCredentialsRequest(socketId, ws.credentials, message.value);
+          } else if (message instanceof PeerRequest) {
+            this.handlePeerRequest(socketId, ws.credentials, message.value);
+          } else if (message instanceof SubscribeRequest) {
+            this.handleSubscribeRequest(socketId, ws.credentials, message.value);
+          } else if (message instanceof Unsubscribe) {
+            this.removeSubscription(socketId, message.value);
+          } else if (message instanceof EventSubscribeRequest) {
+            this.handleEventSubscribeRequest(socketId, ws.credentials, message.value);
+          } else if (message instanceof EventUnsubscribe) {
+            this.removeEventSubscription(socketId, message.value);
+          } else if (message instanceof PublishRequest) {
+            this.handlePublishRequest(socketId, ws.credentials, message.value);
+          } else if (message instanceof Unpublish) {
+            this.removePublisher(socketId, message.value);
+          } else if (message instanceof PublisherMessage) {
+            this.handlePublisherMessage(message.key, socketId, message.message);
+          }
+        } catch (error) {
+          if (error.stack) {
+            this.logger.error(`Error when receiving message from socket ${socketId}:`);
+            error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+          } else {
+            this.logger.error(`Error when receiving socket message from socket ${socketId}: ${error.message}`);
+          }
         }
       },
       close: (ws, code, data) => { // eslint-disable-line no-unused-vars
         const socketId = ws.id;
-        if (!socketId) {
-          this.logger.error('Received close without socket ID');
-          return;
+        try {
+          if (!socketId) {
+            this.logger.error('Received close without socket ID');
+            return;
+          }
+          this.removeSubscriptions(socketId);
+          this.removePublishers(socketId);
+          this.removeEventSubscriptions(socketId);
+          if (this.peerSockets.hasSource(socketId)) {
+            this.peerSockets.removeSource(socketId);
+            this.updatePeers();
+            this.prunePeers();
+          }
+          this.sockets.delete(socketId);
+          this.logger.info(`Closed socket at ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId}), code ${code}`);
+          const { credentials } = ws;
+          if (credentials && credentials.client) {
+            this.emit('presence', credentials, false, socketId, false);
+          }
+          this.emit('close', socketId);
+          delete ws.id; // eslint-disable-line no-param-reassign
+          delete ws.credentials; // eslint-disable-line no-param-reassign
+        } catch (error) {
+          if (error.stack) {
+            this.logger.error(`Error when receiving close event from socket ${socketId}:`);
+            error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+          } else {
+            this.logger.error(`Error when receiving close event from socket ${socketId}: ${error.message}`);
+          }
         }
-        this.removeSubscriptions(socketId);
-        this.removePublishers(socketId);
-        this.removeEventSubscriptions(socketId);
-        if (this.peerSockets.hasSource(socketId)) {
-          this.peerSockets.removeSource(socketId);
-          this.updatePeers();
-          this.prunePeers();
-        }
-        this.sockets.delete(socketId);
-        this.logger.info(`Closed socket with ${ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}), code ${code}`);
-        const { credentials } = ws;
-        if (credentials && credentials.client) {
-          this.emit('presence', credentials, false, socketId, false);
-        }
-        this.emit('close', socketId);
-        delete ws.id; // eslint-disable-line no-param-reassign
-        delete ws.credentials; // eslint-disable-line no-param-reassign
       },
     });
     uwsServer.ws(websocketPattern, options);
@@ -1496,10 +1544,13 @@ class Server extends EventEmitter {
     }
     await Promise.all(peerDisconnectPromises);
     // await this.closePeerConnections();
-    for (const reconnectTimeout of this.peerReconnectTimeouts.values()) {
+    for (const [peerId, reconnectTimeout] of this.peerReconnectTimeouts) {
+      this.logger.warn(`Clearing peer ${peerId} reconnect timeout during server close`);
       clearTimeout(reconnectTimeout);
     }
-    for (const socket of this.sockets.values()) {
+    this.peerReconnectTimeouts.clear();
+    for (const [socketId, socket] of this.sockets) {
+      this.logger.info(`Sending close event with code 1001 to socket ${socketId} during server close`);
       socket.end(1001, 'Shutting down');
     }
     const timeout = Date.now() + 10000;
@@ -1612,13 +1663,18 @@ class Server extends EventEmitter {
     const peerConnection = this.peerConnections.get(peerId);
     this.peerConnections.delete(peerId);
     const peerReconnectTimeout = this.peerReconnectTimeouts.get(peerId);
-    clearTimeout(peerReconnectTimeout);
+    if (typeof peerReconnectTimeout !== 'undefined') {
+      this.peerReconnectTimeouts.delete(peerId);
+      this.logger.info(`Clearing peer ${peerId} reconnect timeout during disconnect`);
+      clearTimeout(peerReconnectTimeout);
+    }
     if (peerConnection) {
-      await peerConnection.close(1001);
+      await peerConnection.close(1001, 'Disconnect requested');
     }
     for (const socketId of this.peerSockets.getSources(peerId)) {
-      const ws = this.sockets.get(socketId);
-      if (!ws) {
+      const socket = this.sockets.get(socketId);
+      if (!socket) {
+        this.logger.warn(`Unable to find socket ${socketId} for peer ${peerId} during disconnect`);
         continue;
       }
       await new Promise((resolve, reject) => {
@@ -1637,8 +1693,10 @@ class Server extends EventEmitter {
         };
         this.on('error', handleError);
         this.on('close', handleClose);
-        ws.end(1001, 'Peer disconncting');
+        this.logger.info(`Sending close event with code 1001 to socket ${socketId} during peer disconnect`);
+        socket.end(1001, 'Peer disconnecting');
       });
+      this.logger.info(`Closed socket ${socketId} for peer ${peerId} during disconnect`);
     }
   }
 
@@ -1655,10 +1713,15 @@ class Server extends EventEmitter {
       return;
     }
     let peerReconnectTimeout = this.peerReconnectTimeouts.get(peerId);
-    clearTimeout(peerReconnectTimeout);
+    if (typeof peerReconnectTimeout !== 'undefined') {
+      this.peerReconnectTimeouts.delete(peerId);
+      this.logger.info(`Clearing peer ${peerId} reconnect timeout during subsequent reconnect`);
+      clearTimeout(peerReconnectTimeout);
+    }
     const duration = attempt > 8 ? 60000 + Math.round(Math.random() * 10000) : attempt * attempt * 1000;
-    this.logger.warn(`Reconnect attempt ${attempt} in ${Math.round(duration / 100) / 10} seconds`);
+    this.logger.warn(`Reconnect to peer ${peerId} attempt ${attempt} scheduled in ${Math.round(duration / 100) / 10} seconds`);
     peerReconnectTimeout = setTimeout(async () => {
+      this.logger.info(`Reconnecting to peer ${peerId}, attempt ${attempt}`);
       this.peerReconnectTimeouts.delete(peerId);
       try {
         await this.connectToPeer(address, credentials, attempt + 1);
@@ -1749,9 +1812,12 @@ class Server extends EventEmitter {
       };
       this.on('peerSyncResponse', handlePeerSyncReponse);
     });
-    peerConnection.ws.send(encode(peerSync));
+    const message = encode(peerSync);
+    this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} connection`);
+    peerConnection.ws.send(message);
     try {
       await peerSyncResponsePromise;
+      this.logger.info(`Received peer sync response from peer ${peerId}`);
     } catch (error) {
       if (error.stack) {
         this.logger.error('Error in peer connection sync response:');
@@ -1797,9 +1863,12 @@ class Server extends EventEmitter {
       };
       this.on('peerSyncResponse', handlePeerSyncReponse);
     });
-    ws.send(getArrayBuffer(encode(peerSync)), true, false);
+    const message = encode(peerSync);
+    this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} at socket ${socketId}`);
+    ws.send(getArrayBuffer(message), true, false);
     try {
       await peerSyncResponsePromise;
+      this.logger.info(`Received peer sync response from peer ${peerId} at socket ${socketId}`);
     } catch (error) {
       if (error.stack) {
         this.logger.error('Error in peer socket sync response:');

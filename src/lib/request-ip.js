@@ -1,6 +1,6 @@
 // @flow
 
-import type { UWSWebSocket, UWSHttpRequest } from '../uWebSockets';
+import type { HttpResponse, UWSHttpRequest } from '../uWebSockets';
 
 // Based on https://raw.githubusercontent.com/pbojinov/request-ip/master/src/index.js
 
@@ -24,8 +24,12 @@ const correctForm = (s?:string) => {
   return null;
 };
 
-module.exports = (ws: UWSWebSocket, req:UWSHttpRequest) => {
+module.exports = (res: HttpResponse, req:UWSHttpRequest) => {
   let ipString;
+
+  if (typeof req === 'undefined') {
+    throw new Error('Missing required parameter req');
+  }
 
   // Standard headers used by Amazon EC2, Heroku, and others.
   ipString = correctForm(req.getHeader('x-client-ip'));
@@ -100,10 +104,11 @@ module.exports = (ws: UWSWebSocket, req:UWSHttpRequest) => {
 
   let v6;
   try {
-    v6 = Address6.fromUnsignedByteArray(new Uint8Array(ws.getRemoteAddress()));
+    v6 = Address6.fromUnsignedByteArray(new Uint8Array(res.getRemoteAddress()));
   } catch (error) {
     return undefined;
   }
+
   try {
     const v4 = v6.to4();
     return v4.correctForm();

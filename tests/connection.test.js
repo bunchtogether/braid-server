@@ -106,6 +106,7 @@ describe('Connection', () => {
       server.once('close', resolve);
       server.once('error', reject);
     });
+
     await new Promise((resolve) => {
       const handlePresence = (credentials, online, socketId, credentialsDidUpdate) => {
         if (!online) {
@@ -113,12 +114,13 @@ describe('Connection', () => {
           expect(credentialsDidUpdate).toEqual(false);
           expect(credentials).toEqual({ client: credentialsValueB, ip: '127.0.0.1' });
           server.removeListener('presence', handlePresence);
-          resolve();
+          clientClose.then(resolve);
         }
       };
       server.on('presence', handlePresence);
-      client.close();
+      const clientClose = client.close();
     });
+    await client.close();
     await closePromise;
   });
 });

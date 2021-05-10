@@ -8,7 +8,7 @@
     "build": "rm -rf ./dist; flow-remove-types ./src --out-dir ./dist && flow-copy-source ./src ./dist",
     "flow-typed": "./node_modules/.bin/flow-typed install --overwrite",
     "test": "yarn lint && yarn test:js",
-    "test:js": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles tests",
+    "test:js": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles tests/peer-reconnect.test.js",
     "lint": "npm run lint:js && npm run lint:flow",
     "lint:js": "eslint -c ./.eslintrc --no-eslintrc --fix --cache .",
     "lint:flow": "flow --show-all-errors",
@@ -56,23 +56,23 @@
     "husky": "^4.3.0",
     "jest": "^26.6.3",
     "jest-diff": "^26.6.2",
-    "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v17.6.0.tar.gz"
+    "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v19.2.0.tar.gz"
   },
   "dependencies": {
     "@bunchtogether/braid-messagepack": "^1.1.19",
     "@bunchtogether/hash-object": "^1.0.3",
     "colors": "^1.4.0",
     "directed-graph-map": "1.2.8",
-    "farmhash": "^3.1.0",
+    "farmhash": "^3.2.1",
     "ip-address": "7.1.0",
-    "lodash": "^4.17.20",
+    "lodash": "^4.17.21",
     "logform": "^2.2.0",
     "lru-cache": "^6.0.0",
     "nanomatch": "^1.2.13",
     "observed-remove": "2.2.27",
     "p-queue": "^6.6.2",
-    "uuid": "^8.3.0",
+    "uuid": "^8.3.2",
     "winston": "^3.3.3",
-    "ws": "^7.3.1"
+    "ws": "^7.4.5"
   }
 }

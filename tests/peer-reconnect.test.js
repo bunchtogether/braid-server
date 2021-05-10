@@ -27,7 +27,7 @@ describe('Peer Reconnect', () => {
     for (const socketId of serverB.peerSockets.getSources(peerIdA)) {
       const ws = serverB.sockets.get(socketId);
       if (ws) {
-        ws.close();
+        ws.end(1006, 'Peer Disconnect Test (Socket)');
       }
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -62,7 +62,7 @@ describe('Peer Reconnect', () => {
     expect(serverB.hasPeer(peerIdA)).toEqual(true);
     const peerConnection = serverA.peerConnections.get(peerIdB);
     if (peerConnection) {
-      await peerConnection.close();
+      await peerConnection.close(1006, 'Peer Disconnect Test (Connection)');
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(serverB.hasPeer(peerIdA)).toEqual(false);

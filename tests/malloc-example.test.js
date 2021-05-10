@@ -3,7 +3,7 @@
 const uWS = require('uWebSockets.js');
 const uuid = require('uuid');
 const { shuffle } = require('lodash');
-const Server = require('../dist');
+const Server = require('../src');
 require('./lib/map-utils');
 
 const startPort = 10000 + Math.round(Math.random() * 10000);

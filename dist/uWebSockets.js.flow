@@ -7,6 +7,10 @@ interface us_listen_socket {
 
 }
 
+interface us_socket_context_t {
+
+}
+
 /** Recognized string types, things C++ can read and understand as strings */
 export type UWSRecognizedString = string | ArrayBuffer | Uint8Array | Int8Array | Uint16Array | Int16Array | Uint32Array | Int32Array | Float32Array | Float64Array;
 
@@ -106,6 +110,12 @@ export interface UWSWebSocketBehavior {
     compression?: CompressOption;
     /** Handler for new UWSWebSocket connection. UWSWebSocket is valid from open to close, no errors. */
     open?: (ws: UWSWebSocket, req: UWSHttpRequest) => void;
+
+    /** Upgrade handler used to intercept HTTP upgrade requests and potentially upgrade to WebSocket.
+     * See UpgradeAsync and UpgradeSync example files.
+     */
+    upgrade?: (res: HttpResponse, req: UWSHttpRequest, context: us_socket_context_t) => void;
+ 
     /** Handler for a UWSWebSocket message. */
     message?: (ws: UWSWebSocket, message: ArrayBuffer, isBinary: boolean) => void | Promise<void>;
     /** Handler for when UWSWebSocket backpressure drains. Check ws.getBufferedAmount(). */

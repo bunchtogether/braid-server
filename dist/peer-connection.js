@@ -99,7 +99,7 @@ class PeerConnection extends EventEmitter {
 
   async close(code         , reason         ) {
     if (!this.ws) {
-      return;
+      throw new Error('Unable to close, socket does not exist');
     }
     await new Promise((resolve, reject) => {
       const onClose = () => {
