@@ -15,6 +15,7 @@ const { EventEmitter } = require('events');
 const PeerConnection = require('./peer-connection');
 const makeLogger = require('./lib/logger');
 const requestIp = require('./lib/request-ip');
+const { MAX_PAYLOAD_LENGTH } = require('./lib/constants');
 const {
   encode,
   decode,
@@ -44,6 +45,8 @@ const {
   PublisherClose,
   PublisherMessage,
   PublisherPeerMessage,
+  MultipartContainer,
+  MergeChunksPromise,
   Unpublish,
 //  PublisherMessage,
 } = require('@bunchtogether/braid-messagepack');
@@ -51,6 +54,8 @@ const {
 function randomInteger() {
   return crypto.randomBytes(4).readUInt32BE(0, true);
 }
+
+const MAX_BACKPRESSURE = MAX_PAYLOAD_LENGTH * 4;
 
 /**
  * Class representing a Braid Server
@@ -62,10 +67,20 @@ class Server extends EventEmitter {
    * @param {UWSRecognizedString} websocketPattern uWebSockets.js websocket pattern
    * @param {UWSWebSocketBehavior} websocketBehavior uWebSockets.js websocket behavior and options
    */
-  constructor(uwsServer                , websocketPattern         = '/*', websocketBehavior          = { compression: 0, maxPayloadLength: 8 * 1024 * 1024, idleTimeout: 56 }) {
+  constructor(uwsServer                , websocketPattern         = '/*', websocketBehavior          = { compression: 0, closeOnBackpressureLimit: false, maxPayloadLength: MAX_PAYLOAD_LENGTH, maxBackpressure: MAX_BACKPRESSURE, idleTimeout: 56 }) {
     super();
 
     this.messageHashes = new LruCache({ max: 500 });
+
+    // Multipart message container merge promises
+    //   Key: id
+    //   Value: MergeChunksPromise
+    this.mergeChunkPromises = new Map();
+
+    // Socket drain callbacks
+    //   Key: Socket ID
+    //   Value: [Array of callbacks, Array of Errbacks]
+    this.drainCallbacks = new Map();
 
     // Primary data object, used by all peers and partially shared with subscribers
     this.data = new ObservedRemoveMap([], { bufferPublishing: 0 });
@@ -410,6 +425,31 @@ class Server extends EventEmitter {
           }
         }
       },
+      drain: (ws) => {
+        const socketId = ws.id;
+        try {
+          if (!socketId) {
+            this.logger.error('Received socket drain without socket ID');
+            return;
+          }
+          const values = this.drainCallbacks.get(socketId);
+          if (typeof values === 'undefined') {
+            return;
+          }
+          const [callbacks] = values;
+          for (const callback of callbacks) {
+            callback();
+          }
+          this.drainCallbacks.delete(socketId);
+        } catch (error) {
+          if (error.stack) {
+            this.logger.error(`Error in drain callback from socket ${socketId}:`);
+            error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+          } else {
+            this.logger.error(`Error in drain callback from socket ${socketId}: ${error.message}`);
+          }
+        }
+      },
       open: (ws) => { // eslint-disable-line no-unused-vars
         const socketId = ws.id;
         const { ip } = ws.credentials || {};
@@ -445,7 +485,7 @@ class Server extends EventEmitter {
             return;
           }
           const message = decode(data);
-          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage) {
+          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer) {
             if (!this.peerSockets.hasSource(socketId)) {
               this.logger.error(`Received dump from non-peer at ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId})`);
               return;
@@ -518,6 +558,46 @@ class Server extends EventEmitter {
     });
     uwsServer.ws(websocketPattern, options);
     this.setMaxListeners(0);
+  }
+
+  async handleMultipartContainer(multipartContainer                   , peerId        ) {
+    const existingMergeChunksPromise = this.mergeChunkPromises.get(multipartContainer.id);
+    if (typeof existingMergeChunksPromise !== 'undefined') {
+      existingMergeChunksPromise.push(multipartContainer);
+      return;
+    }
+    const mergeChunksPromise = MultipartContainer.getMergeChunksPromise(60000);
+    mergeChunksPromise.push(multipartContainer);
+    this.mergeChunkPromises.set(multipartContainer.id, mergeChunksPromise);
+    try {
+      const buffer = await mergeChunksPromise;
+      const message = decode(buffer);
+      this.handleMessage(message, peerId);
+    } catch (error) {
+      if (error.stack) {
+        this.logger.error('Unable to merge multipart message chunks:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Unable to merge multipart message chunks: ${error.message}`);
+      }
+    } finally {
+      this.mergeChunkPromises.delete(multipartContainer.id);
+    }
+  }
+
+  async waitForDrain(socketId       ) {
+    const socket = this.sockets.get(socketId);
+    if (!socket) {
+      throw new Error(`Can wait for socket ${socketId} to drain, socket does not exist`);
+    }
+    if (socket.getBufferedAmount() > MAX_PAYLOAD_LENGTH * 2) {
+      await new Promise((resolve, reject) => {
+        const [callbacks, errbacks] = this.drainCallbacks.get(socketId) || [[], []];
+        callbacks.push(resolve);
+        errbacks.push(reject);
+        this.drainCallbacks.set(socketId, [callbacks, errbacks]);
+      });
+    }
   }
 
   emitToClients(name        , ...args           ) {
@@ -824,8 +904,9 @@ class Server extends EventEmitter {
     }
     if (response.success) {
       const unencoded = new PeerResponse({ id: this.id, success: true, code: response.code, message: response.message });
-      ws.send(getArrayBuffer(encode(unencoded)), true, false);
       this.addPeer(socketId, peerId);
+      ws.send(getArrayBuffer(encode(unencoded)), true, false);
+      this.syncPeerSocket(socketId, peerId);
     } else {
       const unencoded = new PeerResponse({ success: false, code: response.code, message: response.message });
       ws.send(getArrayBuffer(encode(unencoded)), true, false);
@@ -936,8 +1017,11 @@ class Server extends EventEmitter {
    * @param {DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse|BraidEvent} message Message to handle
    * @return {void}
    */
-  handleMessage(message                                                                                                                                                                           , peerId       ) {
-    if (message instanceof PeerSync) {
+  handleMessage(message                                                                                                                                                                                              , peerId       ) {
+    if (message instanceof MultipartContainer) {
+      this.handleMultipartContainer(message, peerId);
+      return;
+    } else if (message instanceof PeerSync) {
       this.handlePeerSync(message);
       return;
     } else if (message instanceof PeerSyncResponse) {
@@ -1524,7 +1608,6 @@ class Server extends EventEmitter {
     this.logger.info(`Adding peer ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) with ID ${peerId}`);
     this.peerSockets.addEdge(socketId, peerId);
     this.updatePeers();
-    this.syncPeerSocket(socketId, peerId);
   }
 
   /**
@@ -1801,7 +1884,7 @@ class Server extends EventEmitter {
       const timeout = setTimeout(() => {
         this.removeListener('peerSyncResponse', handlePeerSyncReponse);
         reject(new Error(`Timeout waiting for sync response from peer ${peerId}`));
-      }, 5000);
+      }, 60000);
       const handlePeerSyncReponse = (pId       ) => {
         if (pId !== peerId) {
           return;
@@ -1813,11 +1896,21 @@ class Server extends EventEmitter {
       this.on('peerSyncResponse', handlePeerSyncReponse);
     });
     const message = encode(peerSync);
-    this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} connection`);
-    peerConnection.ws.send(message);
+    if (message.length > MAX_PAYLOAD_LENGTH) {
+      const chunkSize = Math.round(MAX_PAYLOAD_LENGTH / 2);
+      const chunks = MultipartContainer.chunk(message, chunkSize);
+      this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} connection in ${chunks.length} chunks`);
+      for (const chunk of chunks) {
+        peerConnection.ws.send(chunk);
+      }
+    } else {
+      this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} connection`);
+      peerConnection.ws.send(message);
+    }
     try {
       await peerSyncResponsePromise;
       this.logger.info(`Received peer sync response from peer ${peerId}`);
+      this.emit('peerSync', peerId);
     } catch (error) {
       if (error.stack) {
         this.logger.error('Error in peer connection sync response:');
@@ -1835,8 +1928,8 @@ class Server extends EventEmitter {
    * @return {Promise<void>}
    */
   async syncPeerSocket(socketId        , peerId        ) {
-    const ws = this.sockets.get(socketId);
-    if (!ws) {
+    const socket = this.sockets.get(socketId);
+    if (!socket) {
       throw new Error(`Can not publish data to peer ${peerId} (${socketId}), socket does not exist`);
     }
     const peerSync = new PeerSync(
@@ -1852,7 +1945,7 @@ class Server extends EventEmitter {
       const timeout = setTimeout(() => {
         this.removeListener('peerSyncResponse', handlePeerSyncReponse);
         reject(new Error(`Timeout waiting for sync response from peer ${peerId}`));
-      }, 5000);
+      }, 60000);
       const handlePeerSyncReponse = (pId       ) => {
         if (pId !== peerId) {
           return;
@@ -1864,11 +1957,24 @@ class Server extends EventEmitter {
       this.on('peerSyncResponse', handlePeerSyncReponse);
     });
     const message = encode(peerSync);
-    this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} at socket ${socketId}`);
-    ws.send(getArrayBuffer(message), true, false);
+    if (message.length > MAX_PAYLOAD_LENGTH) {
+      const chunkSize = Math.round(MAX_PAYLOAD_LENGTH / 2);
+      const chunks = MultipartContainer.chunk(message, chunkSize);
+      this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} at socket ${socketId} in ${chunks.length} chunks`);
+      for (const chunk of chunks) {
+        if (socket.getBufferedAmount() > MAX_BACKPRESSURE) {
+          await this.waitForDrain(socketId);
+        }
+        socket.send(getArrayBuffer(chunk), true, false);
+      }
+    } else {
+      this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} at socket ${socketId}`);
+      socket.send(getArrayBuffer(message), true, false);
+    }
     try {
       await peerSyncResponsePromise;
       this.logger.info(`Received peer sync response from peer ${peerId} at socket ${socketId}`);
+      this.emit('peerSync', peerId);
     } catch (error) {
       if (error.stack) {
         this.logger.error('Error in peer socket sync response:');
@@ -1906,6 +2012,7 @@ class Server extends EventEmitter {
                      
                                     
                                        
+                                                              
                                                    
                                                                
                                                           
@@ -1913,6 +2020,7 @@ class Server extends EventEmitter {
                                                        
                                                       
                                             
+                                                                                  
                                                      
                                               
                                                          

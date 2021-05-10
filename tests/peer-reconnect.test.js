@@ -61,9 +61,10 @@ describe('Peer Reconnect', () => {
     expect(serverA.hasPeer(peerIdB)).toEqual(true);
     expect(serverB.hasPeer(peerIdA)).toEqual(true);
     const peerConnection = serverA.peerConnections.get(peerIdB);
-    if (peerConnection) {
-      await peerConnection.close(1006, 'Peer Disconnect Test (Connection)');
+    if (!peerConnection) {
+      throw new Error('Peer connection does not exist');
     }
+    await peerConnection.close(1000, 'Peer Disconnect Test (Connection)');
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(serverB.hasPeer(peerIdA)).toEqual(false);
     expect(serverA.hasPeer(peerIdB)).toEqual(false);

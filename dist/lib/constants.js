@@ -1,0 +1,5 @@
+//      
+
+const MAX_PAYLOAD_LENGTH = 100 * 1024 * 1024;
+
+module.exports.MAX_PAYLOAD_LENGTH = MAX_PAYLOAD_LENGTH;

@@ -2,6 +2,7 @@
 
 const { EventEmitter } = require('events');
 const WS = require('ws');
+const { MAX_PAYLOAD_LENGTH } = require('./lib/constants');
 
 const {
   encode,
@@ -45,7 +46,9 @@ class PeerConnection extends EventEmitter {
   async open() {
     let heartbeatInterval;
 
-    const ws = new WS(this.address);
+    const ws = new WS(this.address, {
+      maxPayload: MAX_PAYLOAD_LENGTH,
+    });
 
     ws.on('error', () => {
       this.emit('error', new Error(`Websocket error when connecting to ${this.address}, check the 'close' event for additional details`));
