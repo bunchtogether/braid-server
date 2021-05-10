@@ -1804,6 +1804,16 @@ class Server extends EventEmitter {
     const duration = attempt > 8 ? 60000 + Math.round(Math.random() * 10000) : attempt * attempt * 1000;
     this.logger.warn(`Reconnect to peer ${peerId} attempt ${attempt} scheduled in ${Math.round(duration / 100) / 10} seconds`);
     peerReconnectTimeout = setTimeout(async () => {
+      // Reset local value for providers so it doesn't get overwritten on OR map sync
+      const provides = this.providers.get(this.id);
+      if (provides) {
+        this.providers.set(this.id, provides);
+      }
+      // Reset local value for providers so it doesn't get overwritten on OR map sync
+      const receives = this.receivers.get(this.id);
+      if (receives) {
+        this.receivers.set(this.id, receives);
+      }
       this.logger.info(`Reconnecting to peer ${peerId}, attempt ${attempt}`);
       this.peerReconnectTimeouts.delete(peerId);
       try {
@@ -1931,6 +1941,16 @@ class Server extends EventEmitter {
     const socket = this.sockets.get(socketId);
     if (!socket) {
       throw new Error(`Can not publish data to peer ${peerId} (${socketId}), socket does not exist`);
+    }
+    // Reset local value for providers so it doesn't get overwritten on OR map sync
+    const provides = this.providers.get(this.id);
+    if (provides) {
+      this.providers.set(this.id, provides);
+    }
+    // Reset local value for providers so it doesn't get overwritten on OR map sync
+    const receives = this.receivers.get(this.id);
+    if (receives) {
+      this.receivers.set(this.id, receives);
     }
     const peerSync = new PeerSync(
       this.id,

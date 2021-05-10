@@ -1,5 +1,6 @@
 // @flow
 
+const uuid = require('uuid');
 const expect = require('expect');
 const Server = require('../src');
 const startWebsocketServer = require('./lib/ws-server');
@@ -9,6 +10,8 @@ jest.setTimeout(30000);
 
 describe('Peer Reconnect', () => {
   test('Should reconnect after one second if the source peer disconnects', async () => {
+    const keyA = uuid.v4();
+    const keyB = uuid.v4();
     const portA = 10000 + Math.round(Math.random() * 10000);
     const portB = portA + 1;
     const wsA = await startWebsocketServer('0.0.0.0', portA);
@@ -19,9 +22,21 @@ describe('Peer Reconnect', () => {
     const stopWebsocketServerB = wsB[1];
     const peerIdA = serverA.id;
     const peerIdB = serverB.id;
+    serverA.provide(keyA, () => {});
+    serverB.provide(keyB, () => {});
+    serverA.receive(keyA);
+    serverB.receive(keyB);
     expect(serverA.hasPeer(peerIdB)).toEqual(false);
     expect(serverB.hasPeer(peerIdA)).toEqual(false);
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
+    await expect(serverA.providers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverA.providers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverB.providers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverB.providers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverA.receivers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverA.receivers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverB.receivers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverB.receivers).toReceiveProperty(serverB.id, [keyB]);
     expect(serverA.hasPeer(peerIdB)).toEqual(true);
     expect(serverB.hasPeer(peerIdA)).toEqual(true);
     for (const socketId of serverB.peerSockets.getSources(peerIdA)) {
@@ -36,6 +51,14 @@ describe('Peer Reconnect', () => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     expect(serverB.hasPeer(peerIdA)).toEqual(true);
     expect(serverA.hasPeer(peerIdB)).toEqual(true);
+    await expect(serverA.providers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverA.providers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverB.providers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverB.providers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverA.receivers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverA.receivers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverB.receivers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverB.receivers).toReceiveProperty(serverB.id, [keyB]);
     await serverA.close();
     await stopWebsocketServerA();
     serverA.throwOnLeakedReferences();
@@ -45,6 +68,8 @@ describe('Peer Reconnect', () => {
   });
 
   test('Should reconnect after one second if the target peer disconnects', async () => {
+    const keyA = uuid.v4();
+    const keyB = uuid.v4();
     const portA = 10000 + Math.round(Math.random() * 10000);
     const portB = portA + 1;
     const wsA = await startWebsocketServer('0.0.0.0', portA);
@@ -55,9 +80,21 @@ describe('Peer Reconnect', () => {
     const stopWebsocketServerB = wsB[1];
     const peerIdA = serverA.id;
     const peerIdB = serverB.id;
+    serverA.provide(keyA, () => {});
+    serverB.provide(keyB, () => {});
+    serverA.receive(keyA);
+    serverB.receive(keyB);
     expect(serverA.hasPeer(peerIdB)).toEqual(false);
     expect(serverB.hasPeer(peerIdA)).toEqual(false);
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
+    await expect(serverA.providers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverA.providers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverB.providers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverB.providers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverA.receivers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverA.receivers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverB.receivers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverB.receivers).toReceiveProperty(serverB.id, [keyB]);
     expect(serverA.hasPeer(peerIdB)).toEqual(true);
     expect(serverB.hasPeer(peerIdA)).toEqual(true);
     const peerConnection = serverA.peerConnections.get(peerIdB);
@@ -71,6 +108,14 @@ describe('Peer Reconnect', () => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     expect(serverB.hasPeer(peerIdA)).toEqual(true);
     expect(serverA.hasPeer(peerIdB)).toEqual(true);
+    await expect(serverA.providers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverA.providers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverB.providers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverB.providers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverA.receivers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverA.receivers).toReceiveProperty(serverB.id, [keyB]);
+    await expect(serverB.receivers).toReceiveProperty(serverA.id, [keyA]);
+    await expect(serverB.receivers).toReceiveProperty(serverB.id, [keyB]);
     await serverA.close();
     await stopWebsocketServerA();
     serverA.throwOnLeakedReferences();
