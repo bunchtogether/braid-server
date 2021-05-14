@@ -107,8 +107,12 @@ See also:
         *   [Parameters](#parameters-42)
     *   [hasPeer](#haspeer)
         *   [Parameters](#parameters-43)
-    *   [waitForSocketCredentialQueue](#waitforsocketcredentialqueue)
+    *   [waitForPeerConnect](#waitforpeerconnect)
         *   [Parameters](#parameters-44)
+    *   [waitForPeerDisconnect](#waitforpeerdisconnect)
+        *   [Parameters](#parameters-45)
+    *   [waitForSocketCredentialQueue](#waitforsocketcredentialqueue)
+        *   [Parameters](#parameters-46)
 
 ### Server
 
@@ -618,6 +622,28 @@ Check if peer exists
 *   `peerId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Peer ID
 
 Returns **[boolean](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean)** 
+
+#### waitForPeerConnect
+
+Wait for a specific peer to connect
+
+##### Parameters
+
+*   `peerId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Peer ID
+*   `duration` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Number of milliseconds to wait before throwing an error (optional, default `5000`)
+
+Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)\<void>** 
+
+#### waitForPeerDisconnect
+
+Wait for a specific peer to disconnect
+
+##### Parameters
+
+*   `peerId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Peer ID
+*   `duration` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Number of milliseconds to wait before throwing an error (optional, default `5000`)
+
+Returns **[Promise](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise)\<void>** 
 
 #### waitForSocketCredentialQueue
 
