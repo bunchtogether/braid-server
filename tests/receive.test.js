@@ -267,12 +267,12 @@ describe(`${count} peers in a ring with a receiver`, () => {
     expect(handleMessage.mock.calls[0][0]).toEqual(key);
     expect(handleMessage.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
     expect(handleMessage.mock.calls[0][2]).toEqual(message);
+    await clientA.close();
     await server.close();
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(handleClose.mock.calls.length).toEqual(1);
     expect(handleClose.mock.calls[0][0]).toEqual(key);
     expect(handleClose.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
-    await clientA.close();
     await stop();
     serverA.unreceive(key);
     server.throwOnLeakedReferences();

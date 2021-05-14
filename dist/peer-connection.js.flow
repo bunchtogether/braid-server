@@ -2,7 +2,6 @@
 
 const { EventEmitter } = require('events');
 const WS = require('ws');
-const { MAX_PAYLOAD_LENGTH } = require('./lib/constants');
 
 const {
   encode,
@@ -35,10 +34,11 @@ class CredentialsError extends Error {
 }
 
 class PeerConnection extends EventEmitter {
-  constructor(id: number, address:string, credentials?:Object = {}) {
+  constructor(id: number, address:string, maxPayloadLength: number, credentials?:Object = {}) {
     super();
     this.id = id;
     this.address = address;
+    this.maxPayloadLength = maxPayloadLength;
     this.credentials = credentials;
     this.timeoutDuration = 5000;
   }
@@ -47,7 +47,7 @@ class PeerConnection extends EventEmitter {
     let heartbeatInterval;
 
     const ws = new WS(this.address, {
-      maxPayload: MAX_PAYLOAD_LENGTH,
+      maxPayload: this.maxPayloadLength,
     });
 
     ws.on('error', () => {
@@ -177,6 +177,7 @@ class PeerConnection extends EventEmitter {
 
   declare id:number;
   declare address:string;
+  declare maxPayloadLength: number;
   declare credentials: Object;
   declare ws: WS;
   declare timeoutDuration: number;

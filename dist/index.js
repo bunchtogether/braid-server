@@ -15,11 +15,9 @@ const { EventEmitter } = require('events');
 const PeerConnection = require('./peer-connection');
 const makeLogger = require('./lib/logger');
 const requestIp = require('./lib/request-ip');
-const { MAX_PAYLOAD_LENGTH } = require('./lib/constants');
 const {
   encode,
   decode,
-  getArrayBuffer,
   Credentials,
   CredentialsResponse,
   DataDump,
@@ -47,14 +45,17 @@ const {
   PublisherPeerMessage,
   MultipartContainer,
   MergeChunksPromise,
+  DataSyncInsertions,
+  DataSyncDeletions,
   Unpublish,
-//  PublisherMessage,
 } = require('@bunchtogether/braid-messagepack');
+
 
 function randomInteger() {
   return crypto.randomBytes(4).readUInt32BE(0, true);
 }
 
+const MAX_PAYLOAD_LENGTH = 100 * 1024 * 1024;
 const MAX_BACKPRESSURE = MAX_PAYLOAD_LENGTH * 4;
 
 /**
@@ -71,6 +72,17 @@ class Server extends EventEmitter {
     super();
 
     this.messageHashes = new LruCache({ max: 500 });
+
+    if (typeof websocketBehavior.maxPayloadLength !== 'number') {
+      websocketBehavior.maxPayloadLength = MAX_PAYLOAD_LENGTH; // eslint-disable-line no-param-reassign
+    }
+
+    if (typeof websocketBehavior.maxBackpressure !== 'number') {
+      websocketBehavior.maxBackpressure = MAX_BACKPRESSURE; // eslint-disable-line no-param-reassign
+    }
+
+    this.maxPayloadLength = websocketBehavior.maxPayloadLength;
+    this.maxBackpressure = websocketBehavior.maxBackpressure;
 
     // Multipart message container merge promises
     //   Key: id
@@ -485,7 +497,7 @@ class Server extends EventEmitter {
             return;
           }
           const message = decode(data);
-          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer) {
+          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer || message instanceof DataSyncInsertions || message instanceof DataSyncDeletions) {
             if (!this.peerSockets.hasSource(socketId)) {
               this.logger.error(`Received dump from non-peer at ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId})`);
               return;
@@ -560,6 +572,15 @@ class Server extends EventEmitter {
     this.setMaxListeners(0);
   }
 
+  encode(value    ) {
+    try {
+      return encode(value);
+    } catch (error) {
+      this.logger.error(`Unable to encode ${JSON.stringify(value)}`);
+      throw error;
+    }
+  }
+
   async handleMultipartContainer(multipartContainer                   , peerId        ) {
     const existingMergeChunksPromise = this.mergeChunkPromises.get(multipartContainer.id);
     if (typeof existingMergeChunksPromise !== 'undefined') {
@@ -590,7 +611,7 @@ class Server extends EventEmitter {
     if (!socket) {
       throw new Error(`Can wait for socket ${socketId} to drain, socket does not exist`);
     }
-    if (socket.getBufferedAmount() > MAX_PAYLOAD_LENGTH * 2) {
+    if (socket.getBufferedAmount() > this.maxBackpressure) {
       await new Promise((resolve, reject) => {
         const [callbacks, errbacks] = this.drainCallbacks.get(socketId) || [[], []];
         callbacks.push(resolve);
@@ -708,16 +729,12 @@ class Server extends EventEmitter {
     if (peerConnections.length === 0 && peerUWSSockets.length === 0) {
       return;
     }
-    const encoded = encode(obj);
+    const encoded = this.encode(obj);
     for (const ws of peerConnections) {
       ws.send(encoded);
     }
-    if (peerUWSSockets.length === 0) {
-      return;
-    }
-    const arrayBufferEncoded = getArrayBuffer(encoded);
     for (const ws of peerUWSSockets) {
-      ws.send(arrayBufferEncoded, true, false);
+      ws.send(encoded, true, false);
     }
   }
 
@@ -728,18 +745,17 @@ class Server extends EventEmitter {
    * @return {void}
    */
   sendToPeer(peerId       , obj                                                  ) {
-    const encoded = encode(obj);
+    const encoded = this.encode(obj);
     const peerConnection = this.peerConnections.get(peerId);
     if (peerConnection) {
       const { ws } = peerConnection;
       ws.send(encoded);
       return;
     }
-    const arrayBufferEncoded = getArrayBuffer(encoded);
     for (const socketId of this.peerSockets.getSources(peerId)) {
       const ws = this.sockets.get(socketId);
       if (ws) {
-        ws.send(arrayBufferEncoded, true, false);
+        ws.send(encoded, true, false);
       }
     }
   }
@@ -797,18 +813,17 @@ class Server extends EventEmitter {
    * @return {void}
    */
   handleCredentialsRequest(socketId        , credentials        , newClientCredentials        ) {
-    let queue = this.socketCredentialQueues.get(socketId);
-    if (!queue) {
-      const newQueue = new PQueue({ concurrency: 1 });
-      this.socketCredentialQueues.set(socketId, newQueue);
-      queue = newQueue;
-      setImmediate(() => {
-        newQueue.onIdle().then(() => {
-          this.socketCredentialQueues.delete(socketId);
-        });
-      });
+    const queue = this.socketCredentialQueues.get(socketId);
+    if (typeof queue !== 'undefined') {
+      queue.add(() => this._handleCredentialsRequest(socketId, credentials, newClientCredentials)); // eslint-disable-line no-underscore-dangle
+      return;
     }
-    queue.add(() => this._handleCredentialsRequest(socketId, credentials, newClientCredentials)); // eslint-disable-line no-underscore-dangle
+    const newQueue = new PQueue({ concurrency: 1 });
+    newQueue.add(() => this._handleCredentialsRequest(socketId, credentials, newClientCredentials)); // eslint-disable-line no-underscore-dangle
+    this.socketCredentialQueues.set(socketId, newQueue);
+    newQueue.onIdle().then(() => {
+      this.socketCredentialQueues.delete(socketId);
+    });
   }
 
   async _handleCredentialsRequest(socketId        , credentials        , newClientCredentials        ) {
@@ -851,7 +866,7 @@ class Server extends EventEmitter {
       this.logger.info(`Credentials from ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) rejected`);
     }
     const unencoded = new CredentialsResponse({ success: response.success, code: response.code, message: response.message });
-    ws.send(getArrayBuffer(encode(unencoded)), true, false);
+    ws.send(this.encode(unencoded), true, false);
   }
 
   /**
@@ -870,7 +885,7 @@ class Server extends EventEmitter {
       }
       this.logger.warn(`Peer request from ${wsA.credentials && wsA.credentials.ip ? wsA.credentials.ip : 'with unknown IP'} (${socketId}) rejected, connection to peer ${peerId} already exists`);
       const unencoded = new PeerResponse({ id: this.id, success: false, code: 801, message: `Connection to peer ${peerId} already exists` });
-      wsA.send(getArrayBuffer(encode(unencoded)), true, false);
+      wsA.send(this.encode(unencoded), true, false);
       return;
     }
     if (this.peerSockets.hasTarget(peerId)) {
@@ -881,7 +896,7 @@ class Server extends EventEmitter {
       }
       this.logger.warn(`Peer request from ${wsA.credentials && wsA.credentials.ip ? wsA.credentials.ip : 'with unknown IP'} (${socketId}) rejected, connection to peer ${peerId} already exists`);
       const unencoded = new PeerResponse({ id: this.id, success: false, code: 802, message: `Socket to peer ${peerId} already exists` });
-      wsA.send(getArrayBuffer(encode(unencoded)), true, false);
+      wsA.send(this.encode(unencoded), true, false);
       return;
     }
     await this.waitForSocketCredentialQueue(socketId);
@@ -905,11 +920,11 @@ class Server extends EventEmitter {
     if (response.success) {
       const unencoded = new PeerResponse({ id: this.id, success: true, code: response.code, message: response.message });
       this.addPeer(socketId, peerId);
-      ws.send(getArrayBuffer(encode(unencoded)), true, false);
+      ws.send(this.encode(unencoded), true, false);
       this.syncPeerSocket(socketId, peerId);
     } else {
       const unencoded = new PeerResponse({ success: false, code: response.code, message: response.message });
-      ws.send(getArrayBuffer(encode(unencoded)), true, false);
+      ws.send(this.encode(unencoded), true, false);
     }
   }
 
@@ -943,7 +958,7 @@ class Server extends EventEmitter {
       this.addSubscription(socketId, key);
     }
     const unencoded = new SubscribeResponse({ key, success: response.success, code: response.code, message: response.message });
-    ws.send(getArrayBuffer(encode(unencoded)), true, false);
+    ws.send(this.encode(unencoded), true, false);
   }
 
   /**
@@ -976,7 +991,7 @@ class Server extends EventEmitter {
       this.addEventSubscription(socketId, name);
     }
     const unencoded = new EventSubscribeResponse({ name, success: response.success, code: response.code, message: response.message });
-    ws.send(getArrayBuffer(encode(unencoded)), true, false);
+    ws.send(this.encode(unencoded), true, false);
   }
 
   /**
@@ -1009,7 +1024,7 @@ class Server extends EventEmitter {
       this.addPublisher(socketId, key);
     }
     const unencoded = new PublishResponse({ key, success: response.success, code: response.code, message: response.message });
-    ws.send(getArrayBuffer(encode(unencoded)), true, false);
+    ws.send(this.encode(unencoded), true, false);
   }
 
   /**
@@ -1017,8 +1032,14 @@ class Server extends EventEmitter {
    * @param {DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse|BraidEvent} message Message to handle
    * @return {void}
    */
-  handleMessage(message                                                                                                                                                                                              , peerId       ) {
-    if (message instanceof MultipartContainer) {
+  handleMessage(message                                                                                                                                                                                                                                   , peerId       ) {
+    if (message instanceof DataSyncInsertions) {
+      this.data.process([message.insertions, []], true);
+      return;
+    } else if (message instanceof DataSyncDeletions) {
+      this.data.process([[], message.deletions], true);
+      return;
+    } else if (message instanceof MultipartContainer) {
       this.handleMultipartContainer(message, peerId);
       return;
     } else if (message instanceof PeerSync) {
@@ -1081,7 +1102,7 @@ class Server extends EventEmitter {
       }
       if (!encoded) {
         const subscriberEvent = new BraidEvent(name, args, id, []);
-        encoded = getArrayBuffer(encode(subscriberEvent));
+        encoded = this.encode(subscriberEvent);
       }
       ws.send(encoded, true, false);
     }
@@ -1135,7 +1156,7 @@ class Server extends EventEmitter {
           deletionQueue.push([valueId, key]);
         }
       }
-      ws.send(getArrayBuffer(encode(new DataDump([insertionQueue, deletionQueue]))), true, false);
+      ws.send(this.encode(new DataDump([insertionQueue, deletionQueue])), true, false);
     }
   }
 
@@ -1227,7 +1248,7 @@ class Server extends EventEmitter {
     const pair = this.data.pairs.get(key);
     if (pair) {
       const insertionQueue = typeof pair[1] === 'undefined' ? [[key, [pair[0]]]] : [[key, pair]];
-      ws.send(getArrayBuffer(encode(new DataDump([insertionQueue, []]))), true, false);
+      ws.send(this.encode(new DataDump([insertionQueue, []])), true, false);
     }
     this.assignProvider(key);
   }
@@ -1666,7 +1687,7 @@ class Server extends EventEmitter {
    */
   async connectToPeer(address       , credentials         , attempt          = 0) {
     this.logger.info(`Connecting to peer ${address}`);
-    const peerConnection = new PeerConnection(this.id, address, credentials);
+    const peerConnection = new PeerConnection(this.id, address, this.maxPayloadLength, credentials);
     const messageQueue = [];
     const queueMessages = (message    ) => {
       messageQueue.push(message);
@@ -1845,25 +1866,29 @@ class Server extends EventEmitter {
    * @return {void}
    */
   handlePeerSync(peerSync          ) {
-    this.data.process(peerSync.data.queue, true);
     this.peers.process(peerSync.peers.queue, true);
     this.providers.process(peerSync.providers.queue, true);
     this.receivers.process(peerSync.receivers.queue, true);
     this.activeProviders.process(peerSync.activeProviders.queue, true);
     this.peerSubscriptions.process(peerSync.peerSubscriptions.queue, true);
     const peerConnection = this.peerConnections.get(peerSync.id);
-    if (peerConnection && peerConnection.ws.readyState === 1) {
-      peerConnection.ws.send(encode(new PeerSyncResponse(this.id)));
+    this.logger.info(`Sending peer sync response to peer ${peerSync.id}`);
+    if (peerConnection) {
+      if (peerConnection.ws.readyState !== 1) {
+        this.logger.error(`Unable to handle sync from peer ${peerSync.id}, connection is in ready state is ${peerConnection.ws.readyState}`);
+        return;
+      }
+      peerConnection.ws.send(this.encode(new PeerSyncResponse(this.id)));
       return;
     }
     for (const socketId of this.peerSockets.getSources(peerSync.id)) {
       const ws = this.sockets.get(socketId);
       if (ws) {
-        ws.send(getArrayBuffer(encode(new PeerSyncResponse(this.id))), true, false);
+        ws.send(this.encode(new PeerSyncResponse(this.id)), true, false);
         return;
       }
     }
-    this.logger.error(`Unable to handle sync from peer ID ${peerSync.id}, socket or connection does not exist`);
+    this.logger.error(`Unable to handle sync from peer ${peerSync.id}, socket or connection does not exist`);
   }
 
   /**
@@ -1883,7 +1908,6 @@ class Server extends EventEmitter {
     }
     const peerSync = new PeerSync(
       this.id,
-      new DataDump(this.data.dump()),
       new PeerDump(this.peers.dump()),
       new ProviderDump(this.providers.dump()),
       new ReceiverDump(this.receivers.dump()),
@@ -1905,28 +1929,29 @@ class Server extends EventEmitter {
       };
       this.on('peerSyncResponse', handlePeerSyncReponse);
     });
-    const message = encode(peerSync);
-    if (message.length > MAX_PAYLOAD_LENGTH) {
-      const chunkSize = Math.round(MAX_PAYLOAD_LENGTH / 2);
-      const chunks = MultipartContainer.chunk(message, chunkSize);
-      this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} connection in ${chunks.length} chunks`);
-      for (const chunk of chunks) {
-        peerConnection.ws.send(chunk);
-      }
-    } else {
-      this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} connection`);
-      peerConnection.ws.send(message);
-    }
+    const message = this.encode(peerSync);
+    this.logger.info(`Sending ${message.length} byte peer sync message to peer ${peerId} connection`);
+    await this.sendLargeMessageToPeer(message, peerId);
     try {
       await peerSyncResponsePromise;
       this.logger.info(`Received peer sync response from peer ${peerId}`);
-      this.emit('peerSync', peerId);
     } catch (error) {
       if (error.stack) {
         this.logger.error('Error in peer connection sync response:');
         error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
       } else {
         this.logger.error(`Error in peer connection sync response: ${error.message}`);
+      }
+    }
+    try {
+      await this.streamDataToPeer(peerId);
+      this.emit('peerSync', peerId);
+    } catch (error) {
+      if (error.stack) {
+        this.logger.error('Error in peer connection data stream:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Error in peer connection data stream: ${error.message}`);
       }
     }
   }
@@ -1954,7 +1979,6 @@ class Server extends EventEmitter {
     }
     const peerSync = new PeerSync(
       this.id,
-      new DataDump(this.data.dump()),
       new PeerDump(this.peers.dump()),
       new ProviderDump(this.providers.dump()),
       new ReceiverDump(this.receivers.dump()),
@@ -1976,31 +2000,29 @@ class Server extends EventEmitter {
       };
       this.on('peerSyncResponse', handlePeerSyncReponse);
     });
-    const message = encode(peerSync);
-    if (message.length > MAX_PAYLOAD_LENGTH) {
-      const chunkSize = Math.round(MAX_PAYLOAD_LENGTH / 2);
-      const chunks = MultipartContainer.chunk(message, chunkSize);
-      this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} at socket ${socketId} in ${chunks.length} chunks`);
-      for (const chunk of chunks) {
-        if (socket.getBufferedAmount() > MAX_BACKPRESSURE) {
-          await this.waitForDrain(socketId);
-        }
-        socket.send(getArrayBuffer(chunk), true, false);
-      }
-    } else {
-      this.logger.info(`Sending ${message.length} byte peer sync response to peer ${peerId} at socket ${socketId}`);
-      socket.send(getArrayBuffer(message), true, false);
-    }
+    const message = this.encode(peerSync);
+    this.logger.info(`Sending ${message.length} byte peer sync message to peer ${peerId} at socket ${socketId}`);
+    await this.sendLargeMessageToSocket(message, peerId, socketId);
     try {
       await peerSyncResponsePromise;
       this.logger.info(`Received peer sync response from peer ${peerId} at socket ${socketId}`);
-      this.emit('peerSync', peerId);
     } catch (error) {
       if (error.stack) {
         this.logger.error('Error in peer socket sync response:');
         error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
       } else {
         this.logger.error(`Error in peer socket sync response: ${error.message}`);
+      }
+    }
+    try {
+      await this.streamDataToPeer(peerId);
+      this.emit('peerSync', peerId);
+    } catch (error) {
+      if (error.stack) {
+        this.logger.error('Error in peer socket data stream:');
+        error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
+      } else {
+        this.logger.error(`Error in peer socket data stream: ${error.message}`);
       }
     }
   }
@@ -2028,8 +2050,123 @@ class Server extends EventEmitter {
     }
   }
 
+  async sendLargeMessageToPeer(message        , peerId       ) {
+    const peerConnection = this.peerConnections.get(peerId);
+    if (!peerConnection) {
+      this.logger.error(`Unable to send message to peer ${peerId}, connection does not exist`);
+      return false;
+    }
+    if (message.length > this.maxPayloadLength) {
+      const chunkSize = Math.round(this.maxPayloadLength / 2);
+      const chunks = MultipartContainer.chunk(message, chunkSize);
+      this.logger.info(`Sending ${message.length} byte message to peer ${peerId} connection in ${chunks.length} chunks`);
+      for (const chunk of chunks) {
+        if (peerConnection.ws.readyState !== 1) {
+          this.logger.error(`Unable to send message to peer ${peerId}, ready state is ${peerConnection.ws.readyState}`);
+          return false;
+        }
+        await new Promise((resolve, reject) => {
+          peerConnection.ws.send(chunk, (error) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve();
+            }
+          });
+        });
+      }
+      return true;
+    } else if (peerConnection.ws.readyState !== 1) {
+      this.logger.error(`Unable to send message to peer ${peerId}, ready state is ${peerConnection.ws.readyState}`);
+      return false;
+    }
+    await new Promise((resolve, reject) => {
+      peerConnection.ws.send(message, (error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      });
+    });
+    return true;
+  }
+
+  async sendLargeMessageToSocket(message        , peerId       , socketId       ) {
+    const socket = this.sockets.get(socketId);
+    if (!socket) {
+      this.logger.error(`Can not send message to socket ${socketId}, socket does not exist`);
+      return false;
+    }
+    if (message.length > this.maxPayloadLength) {
+      const chunkSize = Math.round(this.maxPayloadLength / 2);
+      const chunks = MultipartContainer.chunk(message, chunkSize);
+      this.logger.info(`Sending ${message.length} byte message to to peer ${peerId} socket ${socketId} in ${chunks.length} chunks`);
+      for (const chunk of chunks) {
+        if (socket.getBufferedAmount() > this.maxBackpressure) {
+          await this.waitForDrain(socketId);
+        }
+        socket.send(chunk, true, false);
+      }
+    } else {
+      socket.send(message, true, false);
+    }
+    await this.waitForDrain(socketId);
+    return true;
+  }
+
+  async streamDataToPeerSocket(peerId        , socketId        ) {
+    const insertions = [];
+    for (const item of this.data.pairs) {
+      insertions.push(item);
+      if (insertions.length >= 100) {
+        const message = this.encode(new DataSyncInsertions(insertions));
+        const sent = await this.sendLargeMessageToSocket(message, peerId, socketId);
+        if (!sent) {
+          this.logger.error(`Can not stream data to peer ${peerId} (${socketId}), socket does not exist`);
+          return;
+        }
+        insertions.length = 0;
+      }
+    }
+    const deletionsMessage = this.encode(new DataSyncDeletions([...this.data.deletions]));
+    await this.sendLargeMessageToSocket(deletionsMessage, peerId, socketId);
+  }
+
+  async streamDataToPeerConnection(peerId       ) {
+    const insertions = [];
+    for (const item of this.data.pairs) {
+      insertions.push(item);
+      if (insertions.length >= 100) {
+        const message = this.encode(new DataSyncInsertions(insertions));
+        const sent = await this.sendLargeMessageToPeer(message, peerId);
+        if (!sent) {
+          this.logger.error(`Can not stream data to peer ${peerId}, connection does not exist`);
+          return;
+        }
+        insertions.length = 0;
+      }
+    }
+    const deletionsMessage = this.encode(new DataSyncDeletions([...this.data.deletions]));
+    await this.sendLargeMessageToPeer(deletionsMessage, peerId);
+  }
+
+
+  streamDataToPeer(peerId        ) { // eslint-disable-line consistent-return
+    if (this.peerConnections.has(peerId)) {
+      return this.streamDataToPeerConnection(peerId);
+    }
+    const socketId = [...this.peerSockets.getSources(peerId)][0];
+    if (this.sockets.has(socketId)) {
+      return this.streamDataToPeerSocket(peerId, socketId);
+    }
+    this.logger.error(`Unable to stream data to peer ${peerId}, no socket or connection exists`);
+  }
+
                              
                      
+                                   
+                                  
                                     
                                        
                                                               

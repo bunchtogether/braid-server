@@ -102,7 +102,7 @@ describe('Large Map Sync', () => {
     await peerSyncPromiseA2;
     await peerSyncPromiseB2;
     for (const [key, value] of serverB.data) {
-      expect(serverA.data.get(key)).toEqual(value);
+      await expect(serverA.data).toReceiveProperty(key, value);
     }
     await serverA.close();
     await stopWebsocketServerA();
@@ -201,7 +201,7 @@ describe('Large Map Sync', () => {
     await peerSyncPromiseA2;
     await peerSyncPromiseB2;
     for (const [key, value] of serverA.data) {
-      expect(serverB.data.get(key)).toEqual(value);
+      await expect(serverB.data).toReceiveProperty(key, value);
     }
     await serverA.close();
     await stopWebsocketServerA();
@@ -258,7 +258,7 @@ describe('Large Map Sync', () => {
     await peerSyncPromiseA;
     await peerSyncPromiseB;
     for (const [key, value] of serverA.data) {
-      expect(serverB.data.get(key)).toEqual(value);
+      await expect(serverB.data).toReceiveProperty(key, value);
     }
     await serverA.close();
     await stopWebsocketServerA();
@@ -315,7 +315,7 @@ describe('Large Map Sync', () => {
     await peerSyncPromiseA;
     await peerSyncPromiseB;
     for (const [key, value] of serverB.data) {
-      expect(serverA.data.get(key)).toEqual(value);
+      await expect(serverA.data).toReceiveProperty(key, value);
     }
     await serverA.close();
     await stopWebsocketServerA();
