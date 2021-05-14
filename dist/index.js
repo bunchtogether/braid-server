@@ -545,7 +545,11 @@ class Server extends EventEmitter {
           this.removePublishers(socketId);
           this.removeEventSubscriptions(socketId);
           if (this.peerSockets.hasSource(socketId)) {
+            const peerIds = this.peerSockets.getTargets(socketId);
             this.peerSockets.removeSource(socketId);
+            for (const peerId of peerIds) {
+              this.emit('removePeer', peerId);
+            }
             this.updatePeers();
             this.prunePeers();
           }
@@ -1628,6 +1632,7 @@ class Server extends EventEmitter {
     }
     this.logger.info(`Adding peer ${ws.credentials && ws.credentials.ip ? ws.credentials.ip : 'with unknown IP'} (${socketId}) with ID ${peerId}`);
     this.peerSockets.addEdge(socketId, peerId);
+    this.emit('addPeer', peerId);
     this.updatePeers();
   }
 
@@ -1731,6 +1736,7 @@ class Server extends EventEmitter {
       const shouldReconnect = this.peerConnections.has(peerId);
       this.logger.info(`Connection to ${address} with peer ID ${peerId} closed with code ${code}`);
       this.peerConnections.delete(peerId);
+      this.emit('removePeer', peerId);
       this.updatePeers();
       this.prunePeers();
       if (!shouldReconnect) {
@@ -1745,6 +1751,7 @@ class Server extends EventEmitter {
       }
     });
     this.peerConnections.set(peerId, peerConnection);
+    this.emit('addPeer', peerId);
     peerConnection.removeListener('message', queueMessages);
     peerConnection.on('message', (message    ) => {
       this.handleMessage(message, peerId);
@@ -1766,6 +1773,7 @@ class Server extends EventEmitter {
   async disconnectFromPeer(peerId        ) {
     const peerConnection = this.peerConnections.get(peerId);
     this.peerConnections.delete(peerId);
+    this.emit('removePeer', peerId);
     const peerReconnectTimeout = this.peerReconnectTimeouts.get(peerId);
     if (typeof peerReconnectTimeout !== 'undefined') {
       this.peerReconnectTimeouts.delete(peerId);
@@ -2034,6 +2042,60 @@ class Server extends EventEmitter {
    */
   hasPeer(peerId        ) {
     return this.peerSockets.hasTarget(peerId) || this.peerConnections.has(peerId);
+  }
+
+  /**
+   * Wait for a specific peer to connect
+   * @param {number} peerId Peer ID
+   * @param {number} duration Number of milliseconds to wait before throwing an error
+   * @return {Promise<void>}
+   */
+  async waitForPeerConnect(peerId        , duration          = 5000) {
+    if (this.hasPeer(peerId)) {
+      return;
+    }
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.removeListener('addPeer', handleAddPeer);
+        reject(new Error(`Peer did not connect within ${duration}ms`));
+      }, duration);
+      const handleAddPeer = (pId        ) => {
+        if (pId !== peerId) {
+          return;
+        }
+        clearTimeout(timeout);
+        this.removeListener('addPeer', handleAddPeer);
+        resolve();
+      };
+      this.addListener('addPeer', handleAddPeer);
+    });
+  }
+
+  /**
+   * Wait for a specific peer to disconnect
+   * @param {number} peerId Peer ID
+   * @param {number} duration Number of milliseconds to wait before throwing an error
+   * @return {Promise<void>}
+   */
+  async waitForPeerDisconnect(peerId        , duration          = 5000) {
+    if (!this.hasPeer(peerId)) {
+      return;
+    }
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.removeListener('removePeer', handleRemovePeer);
+        reject(new Error(`Peer did not disconnect within ${duration}ms`));
+      }, duration);
+      const handleRemovePeer = (pId        ) => {
+        if (pId !== peerId) {
+          return;
+        }
+        clearTimeout(timeout);
+        this.removeListener('removePeer', handleRemovePeer);
+        resolve();
+      };
+      this.addListener('removePeer', handleRemovePeer);
+    });
   }
 
   /**

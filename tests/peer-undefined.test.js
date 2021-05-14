@@ -25,8 +25,8 @@ describe('Reproduce Errors', () => {
     serverA.data.set(keyA, undefined);
     await expect(serverA.providers).toReceiveProperty(serverA.id, [keyA]);
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
-    expect(serverB.hasPeer(peerIdA)).toEqual(true);
-    expect(serverA.hasPeer(peerIdB)).toEqual(true);
+    await serverB.waitForPeerConnect(peerIdA);
+    await serverA.waitForPeerConnect(peerIdB);
     await expect(serverB.providers).toReceiveProperty(serverA.id, [keyA]);
     await serverA.close();
     await stopWebsocketServerA();
@@ -52,8 +52,8 @@ describe('Reproduce Errors', () => {
     serverA.data.set(keyA, null);
     await expect(serverA.providers).toReceiveProperty(serverA.id, [keyA]);
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
-    expect(serverB.hasPeer(peerIdA)).toEqual(true);
-    expect(serverA.hasPeer(peerIdB)).toEqual(true);
+    await serverB.waitForPeerConnect(peerIdA);
+    await serverA.waitForPeerConnect(peerIdB);
     await expect(serverB.providers).toReceiveProperty(serverA.id, [keyA]);
     await serverA.close();
     await stopWebsocketServerA();
