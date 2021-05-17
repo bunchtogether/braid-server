@@ -1925,6 +1925,7 @@ class Server extends EventEmitter {
     const peerSyncResponsePromise = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        peerConnection.removeListener('close', handleClose);
         reject(new Error(`Timeout waiting for sync response from peer ${peerId}`));
       }, 60000);
       const handlePeerSyncReponse = (pId       ) => {
@@ -1933,9 +1934,17 @@ class Server extends EventEmitter {
         }
         clearTimeout(timeout);
         this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        peerConnection.removeListener('close', handleClose);
         resolve();
       };
+      const handleClose = () => {
+        clearTimeout(timeout);
+        this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        peerConnection.removeListener('close', handleClose);
+        reject(new Error(`Connection closed before sync response from peer ${peerId} was received`));
+      };
       this.on('peerSyncResponse', handlePeerSyncReponse);
+      peerConnection.on('close', handleClose);
     });
     const message = this.encode(peerSync);
     this.logger.info(`Sending ${message.length} byte peer sync message to peer ${peerId} connection`);
@@ -1996,17 +2005,29 @@ class Server extends EventEmitter {
     const peerSyncResponsePromise = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        this.removeListener('close', handleClose);
         reject(new Error(`Timeout waiting for sync response from peer ${peerId}`));
       }, 60000);
+      const handleClose = (sId       ) => {
+        if (sId !== socketId) {
+          return;
+        }
+        clearTimeout(timeout);
+        this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        this.removeListener('close', handleClose);
+        reject(new Error(`Socket ${socketId} closed before sync response from peer ${peerId} was received`));
+      };
       const handlePeerSyncReponse = (pId       ) => {
         if (pId !== peerId) {
           return;
         }
         clearTimeout(timeout);
         this.removeListener('peerSyncResponse', handlePeerSyncReponse);
+        this.removeListener('close', handleClose);
         resolve();
       };
       this.on('peerSyncResponse', handlePeerSyncReponse);
+      this.on('close', handleClose);
     });
     const message = this.encode(peerSync);
     this.logger.info(`Sending ${message.length} byte peer sync message to peer ${peerId} at socket ${socketId}`);
