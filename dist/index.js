@@ -327,6 +327,7 @@ class Server extends EventEmitter {
       }
     });
     this.activeProviders.on('set', (key       , [peerId       , regexString       ], previousPeerIdAndRegexString                   ) => {
+      console.log('SET', this.id, peerId, previousPeerIdAndRegexString);
       if (this.id === peerId) {
         const callback = this.provideCallbacks.get(regexString);
         if (!callback) {
@@ -338,7 +339,7 @@ class Server extends EventEmitter {
         }
       } else if (previousPeerIdAndRegexString) {
         const [previousPeerId, previousRegexString] = previousPeerIdAndRegexString;
-        if (previousPeerId !== peerId) {
+        if (previousPeerId === peerId) {
           return;
         }
         const callback = this.provideCallbacks.get(previousRegexString);
