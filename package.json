@@ -1,6 +1,6 @@
 {
   "name": "@bunchtogether/braid-server",
-  "version": "1.1.44",
+  "version": "1.1.46",
   "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
@@ -29,7 +29,7 @@
     "@babel/core": "^7.14.2",
     "@babel/plugin-proposal-class-properties": "^7.13.0",
     "@babel/plugin-transform-flow-strip-types": "^7.13.0",
-    "@bunchtogether/braid-client": "1.1.40",
+    "@bunchtogether/braid-client": "1.1.46",
     "babel-eslint": "^10.1.0",
     "codecov": "^3.8.2",
     "cross-env": "^7.0.3",
@@ -53,7 +53,7 @@
     "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v19.2.0.tar.gz"
   },
   "dependencies": {
-    "@bunchtogether/braid-messagepack": "1.1.40",
+    "@bunchtogether/braid-messagepack": "1.1.46",
     "@bunchtogether/hash-object": "^1.0.3",
     "colors": "^1.4.0",
     "directed-graph-map": "1.2.8",

@@ -3,7 +3,7 @@
 // const expect = require('expect');
 const Server = require('../src');
 const uuid = require('uuid');
-const Client = require('@bunchtogether/braid-client');
+const { default: Client } = require('@bunchtogether/braid-client');
 const startWebsocketServer = require('./lib/ws-server');
 require('./lib/map-utils');
 
