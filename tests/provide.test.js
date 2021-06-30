@@ -10,7 +10,7 @@ require('./lib/map-utils');
 const startPort = 20000 + Math.round(Math.random() * 10000);
 const count = 10;
 
-jest.setTimeout(20000);
+jest.setTimeout(30000);
 
 describe(`${count} peers in a ring with a provider`, () => {
   let client;
@@ -84,14 +84,10 @@ describe(`${count} peers in a ring with a provider`, () => {
     const serverA = peers[0].server;
     const serverB = peers[1].server;
     const providePromiseA = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Timeout when waiting for provide'));
-      }, 10000);
       const handler = (k, active) => {
         if (k !== key) {
           return;
         }
-        clearTimeout(timeout);
         if (active) {
           serverA.data.set(key, valueA);
           resolve();
@@ -104,16 +100,10 @@ describe(`${count} peers in a ring with a provider`, () => {
     for (const { server } of peers) {
       await expect(server.providers).toReceiveProperty(serverA.id, ['.*']);
     }
-    const callbackPromiseA = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        client.unsubscribe(key);
-        client.data.removeListener('set', handler);
-        reject(new Error('Timeout when waiting for subscribe'));
-      }, 10000);
+    const callbackPromiseA = new Promise((resolve) => {
       const handler = (k, v) => {
         if (k === key && v === valueA) {
           client.unsubscribe(key);
-          clearTimeout(timeout);
           client.data.removeListener('set', handler);
           resolve();
         }
@@ -126,16 +116,10 @@ describe(`${count} peers in a ring with a provider`, () => {
     for (const { server } of peers) {
       await expect(server.activeProviders).toReceiveProperty(key, [serverA.id, '.*']);
     }
-    const callbackPromiseB = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        client.unsubscribe(key);
-        client.data.removeListener('set', handler);
-        reject(new Error('Timeout when waiting for subscribe'));
-      }, 10000);
+    const callbackPromiseB = new Promise((resolve) => {
       const handler = (k, v) => {
         if (k === key && v === valueB) {
           client.unsubscribe(key);
-          clearTimeout(timeout);
           client.data.removeListener('set', handler);
           resolve();
         }
@@ -144,14 +128,10 @@ describe(`${count} peers in a ring with a provider`, () => {
       client.subscribe(key);
     });
     const providePromiseB = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Timeout when waiting for provide'));
-      }, 10000);
       const handler = (k, active) => {
         if (k !== key) {
           return;
         }
-        clearTimeout(timeout);
         if (active) {
           serverB.data.set(key, valueB);
           resolve();

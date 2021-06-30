@@ -309,13 +309,13 @@ describe('Client Interruption', () => {
         return { success: true, code: 200, message: 'OK' };
       });
     });
-    const clientCredentialsPromise = client.sendCredentials({ [uuid.v4()]: uuid.v4() });
-    await credentialsReceivedPromise;
-    await client.close();
-    await expect(clientCredentialsPromise).rejects.toEqual(expect.objectContaining({
+    const expectCredentialsToThrowPromise = expect(client.sendCredentials({ [uuid.v4()]: uuid.v4() })).rejects.toEqual(expect.objectContaining({
       name: 'ServerRequestError',
       code: 502,
     }));
+    await credentialsReceivedPromise;
+    await client.close();
+    await expectCredentialsToThrowPromise;
     await server.close();
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
@@ -479,6 +479,7 @@ describe('Client Interruption', () => {
     server.setSubscribeRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
     await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
     await subscriptionPromise;
+    await client.close();
     await server.close();
     await stopWebsocketServer();
     server.throwOnLeakedReferences();
@@ -505,6 +506,7 @@ describe('Client Interruption', () => {
       }
       return { success: true, code: 200, message: 'OK' };
     });
+    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
     client.sendCredentials({ [uuid.v4()]: uuid.v4() });
     await client.subscribe(key);
     await subscribeRequestCredentialsCheckPromise;
@@ -666,6 +668,7 @@ describe('Client Interruption', () => {
       return { success: true, code: 200, message: 'OK' };
     });
     client.sendCredentials({ [uuid.v4()]: uuid.v4() });
+    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
     await client.addServerEventListener(name, () => {});
     await eventSubscribeRequestCredentialsCheckPromise;
     await client.close();
@@ -825,6 +828,7 @@ describe('Client Interruption', () => {
       }
       return { success: true, code: 200, message: 'OK' };
     });
+    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
     client.sendCredentials({ [uuid.v4()]: uuid.v4() });
     await client.startPublishing(name);
     await publishRequestCredentialsCheckPromise;

@@ -50,6 +50,12 @@ const {
   Unpublish,
 } = require('@bunchtogether/braid-messagepack');
 
+type Logger = {
+  debug: (string) => void,
+  info: (string) => void,
+  warn: (string) => void,
+  error: (string) => void
+};
 
 function randomInteger() {
   return crypto.randomBytes(4).readUInt32BE(0, true);
@@ -68,7 +74,7 @@ class Server extends EventEmitter {
    * @param {UWSRecognizedString} websocketPattern uWebSockets.js websocket pattern
    * @param {UWSWebSocketBehavior} websocketBehavior uWebSockets.js websocket behavior and options
    */
-  constructor(uwsServer:UWSTemplatedApp, websocketPattern?:string = '/*', websocketBehavior?: Object = { compression: 0, closeOnBackpressureLimit: false, maxPayloadLength: MAX_PAYLOAD_LENGTH, maxBackpressure: MAX_BACKPRESSURE, idleTimeout: 56 }) {
+  constructor(uwsServer:UWSTemplatedApp, websocketPattern?:string = '/*', websocketBehavior?: Object = { compression: 0, closeOnBackpressureLimit: false, maxPayloadLength: MAX_PAYLOAD_LENGTH, maxBackpressure: MAX_BACKPRESSURE, idleTimeout: 56 }, options?: { id?: number } = {}) {
     super();
 
     this.messageHashes = new LruCache({ max: 500 });
@@ -221,7 +227,7 @@ class Server extends EventEmitter {
     //   Value: TimeoutID
     this.peerReconnectTimeouts = new Map();
 
-    this.id = randomInteger();
+    this.id = typeof options.id === 'number' ? options.id : randomInteger();
 
     this.logger = makeLogger(`Braid Server ${this.id}`);
 
@@ -375,7 +381,7 @@ class Server extends EventEmitter {
     this.providers.on('delete', (peerId:number) => {
       this.providerRegexes.delete(peerId);
     });
-    this.receivers.on('set', (peerId:number, regexStrings:Array<string>, previousRegexStrings:Array<string> | void) => {
+    this.receivers.on('set', (peerId:number, regexStrings:Array<string>, previousRegexStrings?:Array<string>) => {
       const regexMap = new Map(regexStrings.map((regexString) => [regexString, new RegExp(regexString)]));
       this.receiverRegexes.set(peerId, regexMap);
       if (Array.isArray(previousRegexStrings)) {
@@ -415,7 +421,7 @@ class Server extends EventEmitter {
         this.assignReceiver(key, socketId);
       }
     });
-    const options = Object.assign({}, websocketBehavior, {
+    const websocketOptions = Object.assign({}, websocketBehavior, {
       upgrade: (res, req, context) => { // eslint-disable-line no-unused-vars
         try {
           const socketId = randomInteger();
@@ -572,7 +578,7 @@ class Server extends EventEmitter {
         }
       },
     });
-    uwsServer.ws(websocketPattern, options);
+    uwsServer.ws(websocketPattern, websocketOptions);
     this.setMaxListeners(0);
   }
 
@@ -2286,12 +2292,7 @@ class Server extends EventEmitter {
   declare eventSubscribeRequestHandler: (name:string, credentials: Object) => Promise<{ success: boolean, code: number, message: string }>;
   declare keysForDeletion:Map<string, number>;
   declare peerReconnectTimeouts:Map<number, TimeoutID>;
-  declare logger: {
-    debug: (string) => void,
-    info: (string) => void,
-    warn: (string) => void,
-    error: (string) => void
-  };
+  declare logger: Logger;
 }
 
 module.exports = Server;

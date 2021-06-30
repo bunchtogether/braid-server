@@ -96,7 +96,7 @@ describe('Connection', () => {
       };
       server.on('presence', handlePresence);
     });
-    client.sendCredentials(credentialsValueB);
+    await client.sendCredentials(credentialsValueB);
     await offlinePromise;
     await onlinePromise;
   });

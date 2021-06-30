@@ -27,6 +27,30 @@ describe('Permissions', () => {
     server.throwOnLeakedReferences();
   });
 
+  test('Should handle failing subscription requests made before the connection is opened', async () => {
+    const client = new Client();
+    const key = uuid.v4();
+    server.provide('.*', (k, active) => {
+      if (active) {
+        server.data.set(k, true);
+      }
+    });
+    server.setSubscribeRequestHandler(async (k:string, credentials: Object) => ({ success: false, code: 400, message: 'Not allowed' })); // eslint-disable-line no-unused-vars
+    // Add error handler to avoid throwing in test
+    client.on('error', () => {});
+    const subscribePromise = client.subscribe(key);
+    client.open(`ws://localhost:${port}`);
+    await expect(subscribePromise).rejects.toEqual(expect.objectContaining({
+      itemKey: key,
+      name: 'SubscribeError',
+      code: 400,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(client.data.get(key)).toBeUndefined();
+    await client.close();
+    server.unprovide('.*');
+  });
+
   test('Should handle subscription requests made before the connection is opened', async () => {
     const clientA = new Client();
     const clientB = new Client();

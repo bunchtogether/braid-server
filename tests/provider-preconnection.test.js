@@ -9,7 +9,7 @@ require('./lib/map-utils');
 
 jest.setTimeout(30000);
 
-describe('Provider Connections', () => {
+describe('Provider Pre-Connection', () => {
   const portA = 10000 + Math.round(Math.random() * 10000);
   const portB = portA + 1;
   let clientA;

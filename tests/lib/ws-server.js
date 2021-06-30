@@ -6,7 +6,7 @@ const logger = require('../../src/lib/logger')('Websocket Server');
 module.exports = async function (host:string, port:number) {
   logger.debug(`Starting listening on ws://${host}:${port}`);
   const server = uWS.App({});
-  const listenSocket = await new Promise((resolve, reject) => {
+  let listenSocket = await new Promise((resolve, reject) => {
     server.listen(port, (token) => {
       if (token) {
         resolve(token);
@@ -21,6 +21,7 @@ module.exports = async function (host:string, port:number) {
       return;
     }
     uWS.us_listen_socket_close(listenSocket);
+    listenSocket = null;
     logger.info(`Stopped listening on ws://${host}:${port}`);
   };
   logger.info(`Started listening on ws://${host}:${port}`);
