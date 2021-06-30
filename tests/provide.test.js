@@ -41,7 +41,7 @@ describe(`${count} peers in a ring with a provider`, () => {
     await client.open(`ws://localhost:${startPort + 2}`, {});
   });
 
-  test.skip('Should provide values', async () => {
+  test('Should provide values', async () => {
     const key = uuid.v4();
     const value = uuid.v4();
     const [serverA, serverB] = getRandomServers(2);
