@@ -125,6 +125,7 @@ Class representing a Braid Server
 *   `uwsServer` **UWSTemplatedApp** uWebSockets.js server
 *   `websocketPattern` **UWSRecognizedString** uWebSockets.js websocket pattern (optional, default `'/*'`)
 *   `websocketBehavior` **UWSWebSocketBehavior** uWebSockets.js websocket behavior and options (optional, default `{compression:0,closeOnBackpressureLimit:false,maxPayloadLength:MAX_PAYLOAD_LENGTH,maxBackpressure:MAX_BACKPRESSURE,idleTimeout:56}`)
+*   `options`   (optional, default `{}`)
 
 #### throwOnLeakedReferences
 

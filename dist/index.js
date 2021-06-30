@@ -292,6 +292,9 @@ class Server extends EventEmitter {
       if (!peerIds) {
         peerIds = new Set();
         this.peerSubscriptionMap.set(key, peerIds);
+        if (!this.activeProviders.has(key)) {
+          this.assignProvider(key);
+        }
       }
       peerIds.add(peerId);
       clearTimeout(this.provideDebounceTimeouts.get(key));
@@ -347,27 +350,32 @@ class Server extends EventEmitter {
         if (previousPeerId === peerId) {
           return;
         }
-        const callback = this.provideCallbacks.get(previousRegexString);
-        if (!callback) {
-          this.unprovide(previousRegexString);
-          return;
+        if (previousPeerId === this.id) {
+          const callback = this.provideCallbacks.get(previousRegexString);
+          if (callback) {
+            callback(key, false);
+          } else {
+            this.unprovide(previousRegexString);
+          }
         }
-        callback(key, false);
       }
     });
     this.activeProviders.on('delete', (key       , [peerId       , regexString       ]) => {
       if (this.id === peerId) {
         const callback = this.provideCallbacks.get(regexString);
-        if (!callback) {
+        if (callback) {
+          callback(key, false);
+        } else {
           this.unprovide(regexString);
-          return;
         }
-        callback(key, false);
       }
     });
     this.providers.on('set', (peerId       , regexStrings              ) => {
       const regexPairs = regexStrings.map((regexString) => [regexString, new RegExp(regexString)]);
       this.providerRegexes.set(peerId, regexPairs);
+      if (this.id !== peerId) {
+        return;
+      }
       const keysWithoutProviders = [...this.peerSubscriptionMap.keys()].filter((key) => !this.activeProviders.has(key));
       for (const regexPair of regexPairs) {
         const regex = regexPair[1];
@@ -423,6 +431,11 @@ class Server extends EventEmitter {
     });
     const websocketOptions = Object.assign({}, websocketBehavior, {
       upgrade: (res, req, context) => { // eslint-disable-line no-unused-vars
+        if (this.isClosing) {
+          res.writeStatus('410');
+          res.end('Closing');
+          return;
+        }
         try {
           const socketId = randomInteger();
           const socketIp = requestIp(res, req);
@@ -931,6 +944,12 @@ class Server extends EventEmitter {
       const unencoded = new PeerResponse({ id: this.id, success: true, code: response.code, message: response.message });
       this.addPeer(socketId, peerId);
       ws.send(this.encode(unencoded), true, false);
+      // Reset local values so they don't get overwritten on OR map sync
+      this.providers.set(this.id, [...this.provideCallbacks.keys()]);
+      this.receivers.set(this.id, [...this.receiveCallbacks.keys()]);
+      for (const key of this.subscriptions.targets) {
+        this.peerSubscriptions.add([this.id, key]);
+      }
       this.syncPeerSocket(socketId, peerId);
     } else {
       const unencoded = new PeerResponse({ success: false, code: response.code, message: response.message });
@@ -1260,7 +1279,6 @@ class Server extends EventEmitter {
       const insertionQueue = typeof pair[1] === 'undefined' ? [[key, [pair[0]]]] : [[key, pair]];
       ws.send(this.encode(new DataDump([insertionQueue, []])), true, false);
     }
-    this.assignProvider(key);
   }
 
   /**
@@ -1539,7 +1557,11 @@ class Server extends EventEmitter {
    */
   updatePeers() {
     const peerIds = [...this.peerConnections.keys(), ...this.peerSockets.targets];
-    this.peers.set(this.id, peerIds);
+    if (peerIds.length === 0) {
+      this.peers.delete(this.id);
+    } else {
+      this.peers.set(this.id, peerIds);
+    }
   }
 
   /**
@@ -1593,7 +1615,6 @@ class Server extends EventEmitter {
     this.providerRegexes.delete(peerId);
     this.receivers.delete(peerId);
     this.receiverRegexes.delete(peerId);
-    //
     for (const [pId, key] of this.peerSubscriptions) {
       if (pId === peerId) {
         this.peerSubscriptions.delete([pId, key]);
@@ -1619,9 +1640,6 @@ class Server extends EventEmitter {
       this.handlePublisherClose(key, socketId);
     }
     this.publisherPeers.removeTarget(peerId);
-    if (this.id === peerId) {
-      this.receiveCallbacks.clear();
-    }
   }
 
 
@@ -1649,6 +1667,10 @@ class Server extends EventEmitter {
   async close() {
     this.logger.info('Closing');
     this.isClosing = true;
+    for (const [socketId, socket] of this.sockets) {
+      this.logger.info(`Sending close event with code 1001 to socket ${socketId} during server close`);
+      socket.end(1001, 'Shutting down');
+    }
     const peerDisconnectPromises = [];
     for (const peerId of this.peerConnections.keys()) {
       peerDisconnectPromises.push(this.disconnectFromPeer(peerId));
@@ -1658,21 +1680,39 @@ class Server extends EventEmitter {
       this.provideDebounceTimeouts.delete(key);
     }
     await Promise.all(peerDisconnectPromises);
-    // await this.closePeerConnections();
     for (const [peerId, reconnectTimeout] of this.peerReconnectTimeouts) {
       this.logger.warn(`Clearing peer ${peerId} reconnect timeout during server close`);
       clearTimeout(reconnectTimeout);
     }
     this.peerReconnectTimeouts.clear();
-    for (const [socketId, socket] of this.sockets) {
-      this.logger.info(`Sending close event with code 1001 to socket ${socketId} during server close`);
-      socket.end(1001, 'Shutting down');
-    }
     const timeout = Date.now() + 10000;
     while (this.sockets.size > 0 && Date.now() < timeout) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    this.removePeer(this.id);
+    this.peers.delete(this.id);
+    this.providers.delete(this.id);
+    this.providerRegexes.delete(this.id);
+    this.receivers.delete(this.id);
+    this.receiverRegexes.delete(this.id);
+    for (const [peerId, key] of this.peerSubscriptions) {
+      if (peerId === this.id) {
+        this.peerSubscriptions.delete([peerId, key]);
+      }
+    }
+    for (const [key, [peerId]] of this.activeProviders) {
+      if (peerId === this.id) {
+        this.activeProviders.delete(key);
+      }
+    }
+    this.receiverPeers.removeTarget(this.id);
+    const publisherPeerSessionKeys = this.publisherPeers.getSources(this.id);
+    for (const sessionKey of publisherPeerSessionKeys) {
+      const [key, socketIdString] = sessionKey.split(':');
+      const socketId = parseInt(socketIdString, 10);
+      this.handlePublisherClose(key, socketId);
+    }
+    this.publisherPeers.removeTarget(this.id);
+    this.receiveCallbacks.clear();
     if (Date.now() > timeout) {
       this.logger.warn('Closed after timeout');
     } else {
@@ -1684,7 +1724,7 @@ class Server extends EventEmitter {
       clearTimeout(provideDebounceTimeout);
     }
     this.provideDebounceTimeouts.clear();
-    this.isClosing = false;
+
     clearInterval(this.flushInterval);
     clearInterval(this.keyFlushInterval);
   }
@@ -1696,7 +1736,10 @@ class Server extends EventEmitter {
    * @param {number} [attempt] Number of previous reconnect attempts
    * @return {Promise<number>}
    */
-  async connectToPeer(address       , credentials         , attempt          = 0) {
+  async connectToPeer(address       , credentials         ) {
+    if (this.isClosing) {
+      throw new Error(`Unable to connect to ${address}, closing`);
+    }
     this.logger.info(`Connecting to peer ${address}`);
     const peerConnection = new PeerConnection(this.id, address, this.maxPayloadLength, credentials);
     const messageQueue = [];
@@ -1727,7 +1770,6 @@ class Server extends EventEmitter {
     if (!peerId) {
       throw new Error(`Did not receive peer ID when connecting to ${address}`);
     }
-    const start = Date.now();
     if (this.peerConnections.has(peerId)) {
       await peerConnection.close(1000);
       this.logger.warn(`Closing connection to ${address}, connection to peer ${peerId} already exists`);
@@ -1748,12 +1790,11 @@ class Server extends EventEmitter {
       if (!shouldReconnect) {
         return;
       }
+      if (this.isClosing) {
+        return;
+      }
       if (code !== 1001) {
-        if (Date.now() < start + 120000) {
-          this.reconnectToPeer(peerId, attempt + 1, address, credentials);
-        } else {
-          this.reconnectToPeer(peerId, 1, address, credentials);
-        }
+        this.reconnectToPeer(peerId, 1, address, credentials);
       }
     });
     this.peerConnections.set(peerId, peerConnection);
@@ -1767,6 +1808,14 @@ class Server extends EventEmitter {
     }
     this.updatePeers();
     this.logger.info(`Connected to ${address} with peer ID ${peerId}`);
+    // Reset local values so they don't get overwritten on OR map sync
+    this.providers.set(this.id, [...this.provideCallbacks.keys()]);
+    this.receivers.set(this.id, [...this.receiveCallbacks.keys()]);
+    for (const key of this.subscriptions.targets) {
+      this.peerSubscriptions.add([this.id, key]);
+    }
+
+
     await this.syncPeerConnection(peerId);
     return peerId;
   }
@@ -1839,20 +1888,10 @@ class Server extends EventEmitter {
     const duration = attempt > 8 ? 60000 + Math.round(Math.random() * 10000) : attempt * attempt * 1000;
     this.logger.warn(`Reconnect to peer ${peerId} attempt ${attempt} scheduled in ${Math.round(duration / 100) / 10} seconds`);
     peerReconnectTimeout = setTimeout(async () => {
-      // Reset local value for providers so it doesn't get overwritten on OR map sync
-      const provides = this.providers.get(this.id);
-      if (provides) {
-        this.providers.set(this.id, provides);
-      }
-      // Reset local value for providers so it doesn't get overwritten on OR map sync
-      const receives = this.receivers.get(this.id);
-      if (receives) {
-        this.receivers.set(this.id, receives);
-      }
       this.logger.info(`Reconnecting to peer ${peerId}, attempt ${attempt}`);
       this.peerReconnectTimeouts.delete(peerId);
       try {
-        await this.connectToPeer(address, credentials, attempt + 1);
+        await this.connectToPeer(address, credentials);
       } catch (error) {
         if (error.name === 'PeerError' && error.code === 801) {
           this.logger.warn(`Socket to peer ${peerId} at ${address} already exists`);
@@ -1860,6 +1899,10 @@ class Server extends EventEmitter {
         }
         if (error.name === 'PeerError' && error.code === 802) {
           this.logger.warn(`Connection to peer ${peerId} at ${address} already exists`);
+          return;
+        }
+        if (error.name === 'CloseError' && error.code === 502) {
+          this.logger.warn(`Connection closed before response from peer ${peerId} at ${address} was received`);
           return;
         }
         if (error.stack) {
@@ -1989,16 +2032,6 @@ class Server extends EventEmitter {
     const socket = this.sockets.get(socketId);
     if (!socket) {
       throw new Error(`Can not publish data to peer ${peerId} (${socketId}), socket does not exist`);
-    }
-    // Reset local value for providers so it doesn't get overwritten on OR map sync
-    const provides = this.providers.get(this.id);
-    if (provides) {
-      this.providers.set(this.id, provides);
-    }
-    // Reset local value for providers so it doesn't get overwritten on OR map sync
-    const receives = this.receivers.get(this.id);
-    if (receives) {
-      this.receivers.set(this.id, receives);
     }
     const peerSync = new PeerSync(
       this.id,

@@ -13,6 +13,15 @@ const {
   Unpeer,
 } = require('@bunchtogether/braid-messagepack');
 
+class CloseError extends Error {
+                       
+  constructor(message       ) {
+    super(message);
+    this.name = 'CloseError';
+    this.code = 502;
+  }
+}
+
 class PeerError extends Error {
                        
                                 
@@ -123,9 +132,16 @@ class PeerConnection extends EventEmitter {
     if (!this.ws) {
       throw new Error('Unable to send credentials, not open');
     }
-    const responsePromise = new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) => {
+      const handleClose = () => {
+        clearTimeout(timeout);
+        this.removeListener('close', handleClose);
+        this.removeListener('credentialsResponse', handleCredentialsResponse);
+        reject(new CloseError('Connection closed before credentials response was received'));
+      };
       const handleCredentialsResponse = (success, code, message) => {
         clearTimeout(timeout);
+        this.removeListener('close', handleClose);
         this.removeListener('credentialsResponse', handleCredentialsResponse);
         if (success) {
           resolve();
@@ -137,19 +153,26 @@ class PeerConnection extends EventEmitter {
         this.removeListener('credentialsResponse', handleCredentialsResponse);
         reject(new CredentialsError(`Credentials response timeout after ${Math.round(this.timeoutDuration / 100) / 10} seconds`, 504));
       }, this.timeoutDuration);
+      this.on('close', handleClose);
       this.on('credentialsResponse', handleCredentialsResponse);
+      this.ws.send(encode(new Credentials(credentials)));
     });
-    this.ws.send(encode(new Credentials(credentials)));
-    await responsePromise;
   }
 
-  async sendPeerRequest() {
+  sendPeerRequest()                 {
     if (!this.ws) {
       throw new Error('Unable to peer, not open');
     }
-    const responsePromise = new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
+      const handleClose = () => {
+        clearTimeout(timeout);
+        this.removeListener('close', handleClose);
+        this.removeListener('peerResponse', handlePeerResponse);
+        reject(new CloseError('Connection closed before peer response was received'));
+      };
       const handlePeerResponse = (id, success, code, message) => {
         clearTimeout(timeout);
+        this.removeListener('close', handleClose);
         this.removeListener('peerResponse', handlePeerResponse);
         if (success) {
           resolve(id);
@@ -161,11 +184,10 @@ class PeerConnection extends EventEmitter {
         this.removeListener('peerResponse', handlePeerResponse);
         reject(new PeerError(`Peer response timeout after ${Math.round(this.timeoutDuration / 100) / 10} seconds`, 504));
       }, this.timeoutDuration);
+      this.on('close', handleClose);
       this.on('peerResponse', handlePeerResponse);
+      this.ws.send(encode(new PeerRequest(this.id)));
     });
-    this.ws.send(encode(new PeerRequest(this.id)));
-    const peerId = await responsePromise;
-    return peerId;
   }
 
   unpeer() {
