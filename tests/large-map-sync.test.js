@@ -53,7 +53,7 @@ describe('Large Map Sync', () => {
     });
     for (let i = 0; i < 50; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverB.data.set(uuid.v4(), randomString);
+      serverB.set(uuid.v4(), randomString);
     }
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
     await peerSyncPromiseA1;
@@ -97,7 +97,7 @@ describe('Large Map Sync', () => {
     }
     for (let i = 0; i < 50; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverB.data.set(uuid.v4(), randomString);
+      serverB.set(uuid.v4(), randomString);
     }
     await peerSyncPromiseA2;
     await peerSyncPromiseB2;
@@ -153,7 +153,7 @@ describe('Large Map Sync', () => {
     });
     for (let i = 0; i < 50; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverA.data.set(uuid.v4(), randomString);
+      serverA.set(uuid.v4(), randomString);
     }
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
     await peerSyncPromiseA1;
@@ -196,7 +196,7 @@ describe('Large Map Sync', () => {
     peerConnection.close(1000, 'Peer Disconnect Test (Connection)');
     for (let i = 0; i < 50; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverA.data.set(uuid.v4(), randomString);
+      serverA.set(uuid.v4(), randomString);
     }
     await peerSyncPromiseA2;
     await peerSyncPromiseB2;
@@ -252,7 +252,7 @@ describe('Large Map Sync', () => {
     });
     for (let i = 0; i < 100; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverA.data.set(i.toString(), randomString);
+      serverA.set(i.toString(), randomString);
     }
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
     await peerSyncPromiseA;
@@ -309,7 +309,7 @@ describe('Large Map Sync', () => {
     });
     for (let i = 0; i < 100; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverB.data.set(i.toString(), randomString);
+      serverB.set(i.toString(), randomString);
     }
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
     await peerSyncPromiseA;

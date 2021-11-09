@@ -22,7 +22,7 @@ describe('Reproduce Errors', () => {
     const peerIdA = serverA.id;
     const peerIdB = serverB.id;
     serverA.provide(keyA, () => undefined);
-    serverA.data.set(keyA, undefined);
+    serverA.delete(keyA);
     await expect(serverA.providers).toReceiveProperty(serverA.id, [keyA]);
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
     await serverB.waitForPeerConnect(peerIdA);
@@ -49,7 +49,7 @@ describe('Reproduce Errors', () => {
     const peerIdA = serverA.id;
     const peerIdB = serverB.id;
     serverA.provide(keyA, () => undefined);
-    serverA.data.set(keyA, null);
+    serverA.set(keyA, null);
     await expect(serverA.providers).toReceiveProperty(serverA.id, [keyA]);
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
     await serverB.waitForPeerConnect(peerIdA);

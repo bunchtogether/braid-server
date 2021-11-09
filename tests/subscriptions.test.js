@@ -50,7 +50,7 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
         }, 1000);
         const provideHandler = (key, active) => {
           if (active && stage === 1) {
-            serverA.data.set(key, key);
+            serverA.set(key, key);
             stage = 2;
           } else if (!active && stage === 2) {
             stage = 3;
@@ -96,7 +96,7 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
     const key = uuid.v4();
     const initialValue = uuid.v4();
     const [serverA] = getRandomServers(1);
-    serverA.data.set(key, initialValue);
+    serverA.set(key, initialValue);
     for (const { server } of peers) {
       await expect(server.data).toReceiveProperty(key, initialValue);
     }
@@ -111,7 +111,7 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
           return;
         }
         if (active && stage === 1) {
-          serverA.data.set(k, undefined);
+          serverA.delete(k);
           stage = 2;
         } else if (!active && stage === 2) {
           stage = 3;

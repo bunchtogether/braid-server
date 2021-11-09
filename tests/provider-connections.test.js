@@ -62,7 +62,7 @@ describe('Provider Connections', () => {
       const handler = (k, active) => {
         clearTimeout(timeout);
         if (k === key && active) {
-          serverB.data.set(key, value);
+          serverB.set(key, value);
           serverB.unprovide('.*');
           resolve();
         } else {

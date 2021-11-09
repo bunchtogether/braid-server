@@ -32,7 +32,7 @@ describe('Permissions', () => {
     const key = uuid.v4();
     server.provide('.*', (k, active) => {
       if (active) {
-        server.data.set(k, true);
+        server.set(k, true);
       }
     });
     server.setSubscribeRequestHandler(async (k:string, credentials: Object) => ({ success: false, code: 400, message: 'Not allowed' })); // eslint-disable-line no-unused-vars
@@ -59,7 +59,7 @@ describe('Permissions', () => {
     const key = uuid.v4();
     server.provide('.*', (k, active) => {
       if (active) {
-        server.data.set(k, true);
+        server.set(k, true);
       }
     });
     server.setSubscribeRequestHandler(async (k:string, credentials: Object) => {
@@ -96,7 +96,7 @@ describe('Permissions', () => {
     const key = uuid.v4();
     server.provide('.*', (k, active) => {
       if (active) {
-        server.data.set(k, true);
+        server.set(k, true);
       }
     });
     server.setSubscribeRequestHandler(async (k:string, credentials: Object) => {

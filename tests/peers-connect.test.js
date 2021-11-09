@@ -61,14 +61,14 @@ describe('Peer Connect', () => {
     };
     const makeHandler = (server) => {
       const valueCallback = () => {
-        server.data.set(key, value);
+        server.set(key, value);
       };
       return (k, active) => {
         if (k !== key) {
           return;
         }
         if (active) {
-          server.data.set(k, value);
+          server.set(k, value);
           valueCallbacks.add(valueCallback);
         } else {
           valueCallbacks.delete(valueCallback);

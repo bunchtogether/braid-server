@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const { merge } = require('lodash');
 const { default: PQueue } = require('p-queue');
 const farmhash = require('farmhash');
-const { hash32 } = require('@bunchtogether/hash-object');
+const { hash32, hash64 } = require('@bunchtogether/hash-object');
 const { ObservedRemoveMap, ObservedRemoveSet } = require('observed-remove');
 const DirectedGraphMap = require('directed-graph-map');
 const LruCache = require('lru-cache');
@@ -89,6 +89,31 @@ class Server extends EventEmitter {
 
     this.maxPayloadLength = websocketBehavior.maxPayloadLength;
     this.maxBackpressure = websocketBehavior.maxBackpressure;
+
+    // Values set using setData and deleteData are compared against hashes to prevent
+    // redundant writes
+    this.shouldDeduplicate = false;
+
+    this.recordHashes = new Map();
+    this.recordHashObjects = new Set();
+
+    // Added as a data set handler when deduplication is active
+    // A reference to the original object is temporarily added to a
+    // set to distinguish between local objects and clones of remote objects
+    // This prevents having to calculate the object hash twice
+    this.updateHashOnSet = (name:string, data:any) => {
+      if (this.recordHashObjects.has(data)) {
+        this.recordHashObjects.delete(data);
+      } else {
+        const hash = hash64(data);
+        this.recordHashes.set(name, hash);
+      }
+    };
+
+    // Added as a data delete handler when deduplication is active
+    this.updateHashOnDelete = (name:string) => {
+      this.recordHashes.delete(name);
+    };
 
     // Multipart message container merge promises
     //   Key: id
@@ -642,6 +667,44 @@ class Server extends EventEmitter {
         this.drainCallbacks.set(socketId, [callbacks, errbacks]);
       });
     }
+  }
+
+  set(name:string, data:any) {
+    if (this.shouldDeduplicate) {
+      const hash = hash64(data);
+      if (this.recordHashes.get(name) !== hash) {
+        this.recordHashObjects.add(data);
+        this.data.set(name, data);
+        this.recordHashes.set(name, hash);
+      }
+    } else {
+      this.data.set(name, data);
+    }
+  }
+
+  delete(name:string) {
+    this.data.set(name, undefined);
+  }
+
+  get deduplicate() {
+    return this.shouldDeduplicate;
+  }
+
+  set deduplicate(active:boolean) {
+    if (typeof active !== 'boolean') {
+      throw new TypeError(`Unable to set deduplicate to type ${typeof active}`);
+    }
+    if (active === this.shouldDeduplicate) {
+      return;
+    }
+    if (active) {
+      this.data.on('set', this.updateHashOnSet);
+      this.data.on('delete', this.updateHashOnDelete);
+    } else {
+      this.data.off('set', this.updateHashOnSet);
+      this.data.off('delete', this.updateHashOnDelete);
+    }
+    this.shouldDeduplicate = active;
   }
 
   emitToClients(name: string, ...args:Array<any>) {
@@ -2287,6 +2350,11 @@ class Server extends EventEmitter {
 
   declare isClosing: boolean;
   declare id: number;
+  declare shouldDeduplicate: boolean;
+  declare recordHashes: Map<string, string>;
+  declare recordHashObjects: Set<any>;
+  declare updateHashOnSet: (string, any) => void;
+  declare updateHashOnDelete: (string) => void;
   declare maxPayloadLength: number;
   declare maxBackpressure: number;
   declare flushInterval: IntervalID;

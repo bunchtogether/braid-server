@@ -39,14 +39,14 @@ describe('Simultaneous Subscriptions', () => {
     await clientA.open(`ws://localhost:${port}`);
     await clientA.subscribe(key);
     const clientAPromise1 = expect(clientA.data).toReceiveProperty(key, value1);
-    server.data.set(key, value1);
+    server.set(key, value1);
     await clientAPromise1;
     const clientB = new Client();
     await clientB.open(`ws://localhost:${port}`);
     await clientB.subscribe(key);
     const clientAPromise2 = expect(clientA.data).toReceiveProperty(key, value2);
     const clientBPromise2 = expect(clientB.data).toReceiveProperty(key, value2);
-    server.data.set(key, value2);
+    server.set(key, value2);
     await clientAPromise2;
     await clientBPromise2;
     const clientC = new Client();
@@ -55,7 +55,7 @@ describe('Simultaneous Subscriptions', () => {
     const clientAPromise3 = expect(clientA.data).toReceiveProperty(key, value3);
     const clientBPromise3 = expect(clientB.data).toReceiveProperty(key, value3);
     const clientCPromise3 = expect(clientC.data).toReceiveProperty(key, value3);
-    server.data.set(key, value3);
+    server.set(key, value3);
     await clientAPromise3;
     await clientBPromise3;
     await clientCPromise3;

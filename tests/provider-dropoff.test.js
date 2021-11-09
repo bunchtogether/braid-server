@@ -37,9 +37,9 @@ describe('Provider Dropoff', () => {
         return;
       }
       if (active) {
-        serverA.data.set(k, value);
+        serverA.set(k, value);
       } else {
-        // serverA.data.set(k, uuid.v4());
+        // serverA.set(k, uuid.v4());
       }
     };
     const handlerB = (k, active) => {
@@ -47,9 +47,9 @@ describe('Provider Dropoff', () => {
         return;
       }
       if (active) {
-        serverB.data.set(k, value);
+        serverB.set(k, value);
       } else {
-        // serverB.data.set(k, uuid.v4());
+        // serverB.set(k, uuid.v4());
       }
     };
     const handlerC = (k, active) => {
@@ -57,9 +57,9 @@ describe('Provider Dropoff', () => {
         return;
       }
       if (active) {
-        serverC.data.set(k, value);
+        serverC.set(k, value);
       } else {
-        // serverC.data.set(k, uuid.v4());
+        // serverC.set(k, uuid.v4());
       }
     };
     const handlerD = (k, active) => {
@@ -67,9 +67,9 @@ describe('Provider Dropoff', () => {
         return;
       }
       if (active) {
-        serverD.data.set(k, value);
+        serverD.set(k, value);
       } else {
-        // serverD.data.set(k, uuid.v4());
+        // serverD.set(k, uuid.v4());
       }
     };
 

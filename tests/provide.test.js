@@ -48,7 +48,7 @@ describe(`${count} peers in a ring with a provider`, () => {
     const provideStartPromise = new Promise((resolve) => {
       const handle = (k, active) => {
         if (k === key && active) {
-          serverA.data.set(key, value);
+          serverA.set(key, value);
           resolve();
         }
       };
@@ -89,7 +89,7 @@ describe(`${count} peers in a ring with a provider`, () => {
           return;
         }
         if (active) {
-          serverA.data.set(key, valueA);
+          serverA.set(key, valueA);
           resolve();
         } else {
           reject(`Unexpected provide state for key: ${key}, active: ${active ? 'TRUE' : 'FALSE'}`);
@@ -133,7 +133,7 @@ describe(`${count} peers in a ring with a provider`, () => {
           return;
         }
         if (active) {
-          serverB.data.set(key, valueB);
+          serverB.set(key, valueB);
           resolve();
         } else {
           reject(`Unexpected provide state for key: ${key}, active: ${active ? 'TRUE' : 'FALSE'}`);
