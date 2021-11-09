@@ -4195,10 +4195,10 @@ interpret@^1.0.0:
   resolved "https://registry.yarnpkg.com/interpret/-/interpret-1.4.0.tgz#665ab8bc4da27a774a40584e812e3e0fa45b1a1e"
   integrity sha512-agE4QfB2Lkp9uICn7BAqoscw4SZP9kTE2hxiFI3jBPmXJfdqiahTbUuKGsMoN2GtqL9AxhYioAcVvgsb1HvRbA==
 
-ip-address@8.0.0:
-  version "8.0.0"
-  resolved "https://registry.yarnpkg.com/ip-address/-/ip-address-8.0.0.tgz#00ba9435c8027dd591c491ad64c3e6a52a767ee4"
-  integrity sha512-HAGaTPtx3AJj2p/ymbUjAJzF5bQ+pI6sDDEixHnj+vj1XL9DaK4hGvOOs3mdCMZZLIDOH8T8U6SInpqTk76wXw==
+ip-address@8.1.0:
+  version "8.1.0"
+  resolved "https://registry.yarnpkg.com/ip-address/-/ip-address-8.1.0.tgz#1fe9b4509b51ff7d2fbbef4d3d26994d9915a459"
+  integrity sha512-Wz91gZKpNKoXtqvY8ScarKYwhXoK4r/b5QuT+uywe/azv0/nUCo7Bh0IRRI7F9DHR06kJNWtzMGLIbXavngbKA==
   dependencies:
     jsbn "1.1.0"
     sprintf-js "1.1.2"
@@ -8184,9 +8184,9 @@ typescript@^4.0.2:
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.2.4.tgz#8610b59747de028fda898a8aef0e103f156d0961"
   integrity sha512-V+evlYHZnQkaz8TRBuxTA92yZBPotr5H+WhQ7bD3hZUndx5tGOa1fuCgeSjxAzM1RiN5IzvadIXTVefuuwZCRg==
 
-"uWebSockets.js@https://github.com/uNetworking/uWebSockets.js/archive/v19.3.0.tar.gz":
-  version "19.3.0"
-  resolved "https://github.com/uNetworking/uWebSockets.js/archive/v19.3.0.tar.gz#2d9f83f3cf609dc9ef78391591ba481211f68fa5"
+"uWebSockets.js@https://github.com/uNetworking/uWebSockets.js/archive/v19.5.0.tar.gz":
+  version "19.5.0"
+  resolved "https://github.com/uNetworking/uWebSockets.js/archive/v19.5.0.tar.gz#be3f3c5de854f2bb7731ab27e22da3073b269680"
 
 uglify-js@^3.1.4:
   version "3.13.6"
@@ -8664,10 +8664,10 @@ ws@^7.4.5:
   resolved "https://registry.yarnpkg.com/ws/-/ws-7.4.5.tgz#a484dd851e9beb6fdb420027e3885e8ce48986c1"
   integrity sha512-xzyu3hFvomRfXKH8vOFMU3OguG6oOvhXMo3xsGy3xWExqaM2dxBbVxuD99O7m3ZUFMvvscsZDqxfgMaRr/Nr1g==
 
-ws@^7.5.1:
-  version "7.5.1"
-  resolved "https://registry.yarnpkg.com/ws/-/ws-7.5.1.tgz#44fc000d87edb1d9c53e51fbc69a0ac1f6871d66"
-  integrity sha512-2c6faOUH/nhoQN6abwMloF7Iyl0ZS2E9HGtsiLrWn0zOOMWlhtDmdf/uihDt6jnuCxgtwGBNy6Onsoy2s2O2Ow==
+ws@^7.5.5:
+  version "7.5.5"
+  resolved "https://registry.yarnpkg.com/ws/-/ws-7.5.5.tgz#8b4bc4af518cfabd0473ae4f99144287b33eb881"
+  integrity sha512-BAkMFcAzl8as1G/hArkxOxq3G7pjUqQ3gzYbLL0/5zNkph70e+lCoxBGnm6AW1+/aiNeV4fnKqZ8m4GZewmH2w==
 
 xml-name-validator@^3.0.0:
   version "3.0.0"

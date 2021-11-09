@@ -1,6 +1,6 @@
 {
   "name": "@bunchtogether/braid-server",
-  "version": "1.1.53",
+  "version": "1.1.54",
   "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
@@ -8,7 +8,7 @@
     "build": "rm -rf ./dist; flow-remove-types ./src --out-dir ./dist && flow-copy-source ./src ./dist",
     "flow-typed": "./node_modules/.bin/flow-typed install --overwrite",
     "test": "yarn lint && yarn test:js",
-    "test:js": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles test",
+    "test:js": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles tests",
     "lint": "npm run lint:js && npm run lint:flow",
     "lint:js": "eslint -c ./.eslintrc --no-eslintrc --fix --cache .",
     "lint:flow": "flow --show-all-errors",
@@ -50,7 +50,7 @@
     "husky": "^6.0.0",
     "jest": "^27.2.3",
     "jest-diff": "^27.2.3",
-    "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v19.3.0.tar.gz"
+    "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v19.5.0.tar.gz"
   },
   "dependencies": {
     "@bunchtogether/braid-messagepack": "1.1.46",
@@ -58,7 +58,7 @@
     "colors": "^1.4.0",
     "directed-graph-map": "1.2.8",
     "farmhash": "^3.2.1",
-    "ip-address": "8.0.0",
+    "ip-address": "8.1.0",
     "lodash": "^4.17.21",
     "logform": "^2.2.0",
     "lru-cache": "^6.0.0",
@@ -66,6 +66,6 @@
     "p-queue": "^6.6.2",
     "uuid": "^8.3.2",
     "winston": "^3.3.3",
-    "ws": "^7.5.1"
+    "ws": "^7.5.5"
   }
 }
