@@ -51,13 +51,6 @@ const {
   isNativeAccelerationEnabled,
 } = require('@bunchtogether/braid-messagepack');
 
-               
-                          
-                         
-                         
-                         
-  
-
 function randomInteger() {
   return crypto.randomBytes(4).readUInt32BE(0, true);
 }
@@ -622,7 +615,7 @@ class Server extends EventEmitter {
     this.logger.info(`Native acceleration is ${isNativeAccelerationEnabled ? 'enabled' : 'not enabled'}`);
   }
 
-  encode(value    ) {
+  encode(value    )        {
     try {
       return encode(value);
     } catch (error) {
@@ -688,7 +681,7 @@ class Server extends EventEmitter {
     this.data.set(name, undefined);
   }
 
-  get deduplicate() {
+  get deduplicate()         {
     return this.shouldDeduplicate;
   }
 
@@ -1801,7 +1794,7 @@ class Server extends EventEmitter {
    * @param {number} [attempt] Number of previous reconnect attempts
    * @return {Promise<number>}
    */
-  async connectToPeer(address       , credentials         ) {
+  async connectToPeer(address       , credentials         )                 {
     if (this.isClosing) {
       throw new Error(`Unable to connect to ${address}, closing`);
     }
@@ -2165,7 +2158,7 @@ class Server extends EventEmitter {
    * @param {number} peerId Peer ID
    * @return {boolean}
    */
-  hasPeer(peerId        ) {
+  hasPeer(peerId        )         {
     return this.peerSockets.hasTarget(peerId) || this.peerConnections.has(peerId);
   }
 
@@ -2237,7 +2230,7 @@ class Server extends EventEmitter {
     }
   }
 
-  async sendLargeMessageToPeer(message        , peerId       ) {
+  async sendLargeMessageToPeer(message        , peerId       )                  {
     const peerConnection = this.peerConnections.get(peerId);
     if (!peerConnection) {
       this.logger.error(`Unable to send message to peer ${peerId}, connection does not exist`);
@@ -2279,7 +2272,7 @@ class Server extends EventEmitter {
     return true;
   }
 
-  async sendLargeMessageToSocket(message        , peerId       , socketId       ) {
+  async sendLargeMessageToSocket(message        , peerId       , socketId       )                  {
     const socket = this.sockets.get(socketId);
     if (!socket) {
       this.logger.error(`Can not send message to socket ${socketId}, socket does not exist`);
@@ -2302,7 +2295,7 @@ class Server extends EventEmitter {
     return true;
   }
 
-  async streamDataToPeerSocket(peerId        , socketId        ) {
+  async streamDataToPeerSocket(peerId        , socketId        )               {
     const insertions = [];
     for (const item of this.data.pairs) {
       insertions.push(item);
@@ -2339,7 +2332,7 @@ class Server extends EventEmitter {
   }
 
 
-  streamDataToPeer(peerId        ) { // eslint-disable-line consistent-return
+  streamDataToPeer(peerId        )                       { // eslint-disable-line consistent-return
     if (this.peerConnections.has(peerId)) {
       return this.streamDataToPeerConnection(peerId);
     }

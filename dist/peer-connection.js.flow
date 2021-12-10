@@ -52,7 +52,7 @@ class PeerConnection extends EventEmitter {
     this.timeoutDuration = 5000;
   }
 
-  async open() {
+  async open():Promise<number> {
     let heartbeatInterval;
 
     const ws = new WS(this.address, {
