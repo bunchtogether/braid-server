@@ -14,7 +14,7 @@ console._stdout = process.stdout; // eslint-disable-line no-underscore-dangle,no
 // $FlowFixMe
 console._stderr = process.stderr; // eslint-disable-line no-underscore-dangle,no-console
 
-module.exports = (name        )         => {
+module.exports = (name        ) => {
   if (loggers[name]) {
     return loggers[name];
   }

@@ -51,6 +51,13 @@ const {
   isNativeAccelerationEnabled,
 } = require('@bunchtogether/braid-messagepack');
 
+type Logger = {
+  debug: (string) => void,
+  info: (string) => void,
+  warn: (string) => void,
+  error: (string) => void
+};
+
 function randomInteger() {
   return crypto.randomBytes(4).readUInt32BE(0, true);
 }
