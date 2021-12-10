@@ -48,6 +48,7 @@ const {
   DataSyncInsertions,
   DataSyncDeletions,
   Unpublish,
+  isNativeAccelerationEnabled,
 } = require('@bunchtogether/braid-messagepack');
 
                
@@ -540,7 +541,7 @@ class Server extends EventEmitter {
             this.logger.error(`Received non-binary message from ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId}): ${data.toString()}`);
             return;
           }
-          const message = decode(data);
+          const message = decode(Buffer.from(data));
           if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer || message instanceof DataSyncInsertions || message instanceof DataSyncDeletions) {
             if (!this.peerSockets.hasSource(socketId)) {
               this.logger.error(`Received dump from non-peer at ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId})`);
@@ -618,6 +619,7 @@ class Server extends EventEmitter {
     });
     uwsServer.ws(websocketPattern, websocketOptions);
     this.setMaxListeners(0);
+    this.logger.info(`Native acceleration is ${isNativeAccelerationEnabled ? 'enabled' : 'not enabled'}`);
   }
 
   encode(value    ) {
