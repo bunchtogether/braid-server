@@ -8535,9 +8535,9 @@ typescript@^4.0.2:
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.2.4.tgz#8610b59747de028fda898a8aef0e103f156d0961"
   integrity sha512-V+evlYHZnQkaz8TRBuxTA92yZBPotr5H+WhQ7bD3hZUndx5tGOa1fuCgeSjxAzM1RiN5IzvadIXTVefuuwZCRg==
 
-"uWebSockets.js@https://github.com/uNetworking/uWebSockets.js/archive/v19.5.0.tar.gz":
-  version "19.5.0"
-  resolved "https://github.com/uNetworking/uWebSockets.js/archive/v19.5.0.tar.gz#be3f3c5de854f2bb7731ab27e22da3073b269680"
+"uWebSockets.js@https://github.com/uNetworking/uWebSockets.js/archive/v20.5.0.tar.gz":
+  version "20.5.0"
+  resolved "https://github.com/uNetworking/uWebSockets.js/archive/v20.5.0.tar.gz#686d84ed7e6d971d27eb2e0459a49b28bd3e2606"
 
 uglify-js@^3.1.4:
   version "3.13.6"
