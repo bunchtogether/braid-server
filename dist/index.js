@@ -1379,6 +1379,9 @@ class Server extends EventEmitter {
     if (this.activeProviders.has(key)) {
       return;
     }
+    if (!this.peerSubscriptionMap.has(key)) {
+      return;
+    }
     const peerIdAndRegexStrings = [];
     for (const [peerId, regexes] of this.providerRegexes) {
       for (const [regexString, regex] of regexes) {
