@@ -65,6 +65,9 @@ function randomInteger() {
 const MAX_PAYLOAD_LENGTH = 100 * 1024 * 1024;
 const MAX_BACKPRESSURE = MAX_PAYLOAD_LENGTH * 4;
 
+const previousGenerationCredentialsResponse = Buffer.from('x0gCg6dzdWNjZXNzw6Rjb2RlzMinbWVzc2FnZdktSW52YWxpZCBtc2dwYWNrIGltcGxlbWVudGF0aW9uLCBwbGVhc2UgcmVsb2Fk', 'base64');
+const previousGenerationReloadResponse = Buffer.from('xwsmlKZyZWxvYWSQAJA=', 'base64');
+
 /**
  * Class representing a Braid Server
  */
@@ -576,6 +579,18 @@ class Server extends EventEmitter {
             error.stack.split('\n').forEach((line) => this.logger.error(`\t${line}`));
           } else {
             this.logger.error(`Error when receiving socket message from socket ${socketId}: ${error.message}`);
+          }
+          if (error instanceof TypeError && error.message.indexOf('currentExtensions') !== -1) {
+            if (!ws.sentPrevousGeneration) {
+              ws.sentPrevousGeneration = true; // eslint-disable-line no-param-reassign
+              ws.send(previousGenerationCredentialsResponse, true, false);
+              this.logger.info(`Sending reload event to socket ${socketId} using old messagepack version`);
+              setTimeout(() => {
+                if (this.sockets.has(socketId)) {
+                  ws.send(previousGenerationReloadResponse, true, false);
+                }
+              }, 5000);
+            }
           }
         }
       },
