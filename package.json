@@ -31,7 +31,7 @@
     "@babel/eslint-parser": "^7.16.3",
     "@babel/plugin-proposal-class-properties": "^7.16.0",
     "@babel/plugin-transform-flow-strip-types": "^7.16.0",
-    "@bunchtogether/braid-client": "1.2.3",
+    "@bunchtogether/braid-client": "1.2.4",
     "babel-eslint": "^10.1.0",
     "codecov": "^3.8.2",
     "cross-env": "^7.0.3",
@@ -55,7 +55,7 @@
     "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v20.5.0.tar.gz"
   },
   "dependencies": {
-    "@bunchtogether/braid-messagepack": "1.2.2",
+    "@bunchtogether/braid-messagepack": "1.2.3",
     "@bunchtogether/hash-object": "^1.0.3",
     "colors": "^1.4.0",
     "directed-graph-map": "1.2.8",

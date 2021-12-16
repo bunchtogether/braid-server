@@ -47,6 +47,7 @@ const {
   MergeChunksPromise,
   DataSyncInsertions,
   DataSyncDeletions,
+  CustomMapDump,
   Unpublish,
   isNativeAccelerationEnabled,
 } = require('@bunchtogether/braid-messagepack');
@@ -256,6 +257,31 @@ class Server extends EventEmitter {
     //   Value: TimeoutID
     this.peerReconnectTimeouts = new Map();
 
+    // User defined observed remove maps
+    //   Key: string
+    //   Value: ObservedRemoveMap
+    this._customMaps = new Map(); // eslint-disable-line no-underscore-dangle
+
+    const mapsGetter = (target                                           , name       ) => {
+      const existing = this._customMaps.get(name); // eslint-disable-line no-underscore-dangle
+      if (typeof existing !== 'undefined') {
+        return existing;
+      }
+      const map = new ObservedRemoveMap([], { bufferPublishing: 0 });
+      map.on('publish', (queue                     ) => {
+        this.publishToPeers(new CustomMapDump(name, queue, [this.id]));
+      });
+      this._customMaps.set(name, map); // eslint-disable-line no-underscore-dangle
+      return map;
+    };
+
+    this.maps = new Proxy({}, {
+      get: mapsGetter,
+      set() {
+        throw new TypeError('Can not set Server.maps values');
+      },
+    });
+
     this.id = typeof options.id === 'number' ? options.id : randomInteger();
 
     this.logger = makeLogger(`Braid Server ${this.id}`);
@@ -269,6 +295,9 @@ class Server extends EventEmitter {
       this.receivers.flush();
       this.activeProviders.flush();
       this.peerSubscriptions.flush();
+      for (const customMap of this._customMaps.values()) { // eslint-disable-line no-underscore-dangle
+        customMap.flush();
+      }
     }, 10000);
 
     this.keyFlushInterval = setInterval(() => {
@@ -545,7 +574,7 @@ class Server extends EventEmitter {
             return;
           }
           const message = decode(Buffer.from(data));
-          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer || message instanceof DataSyncInsertions || message instanceof DataSyncDeletions) {
+          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer || message instanceof DataSyncInsertions || message instanceof DataSyncDeletions || message instanceof CustomMapDump) {
             if (!this.peerSockets.hasSource(socketId)) {
               this.logger.error(`Received dump from non-peer at ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId})`);
               return;
@@ -805,7 +834,7 @@ class Server extends EventEmitter {
    * @param {ProviderDump|DataDump|ActiveProviderDump|ReceiverDump|PeerDump|PeerSubscriptionDump} obj - Object to send, should have "ids" property
    * @return {void}
    */
-  publishToPeers(obj                                                                                               ) {
+  publishToPeers(obj                                                                                                             ) {
     const peerIds = obj.ids;
     const peerConnections = [];
     const peerUWSSockets = [];
@@ -1141,7 +1170,7 @@ class Server extends EventEmitter {
    * @param {DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse|BraidEvent} message Message to handle
    * @return {void}
    */
-  handleMessage(message                                                                                                                                                                                                                                   , peerId       ) {
+  handleMessage(message                                                                                                                                                                                                                                                 , peerId       ) {
     if (message instanceof DataSyncInsertions) {
       this.data.process([message.insertions, []], true);
       return;
@@ -1193,6 +1222,11 @@ class Server extends EventEmitter {
       this.receivers.process(message.queue, true);
     } else if (message instanceof PeerDump) {
       this.peers.process(message.queue, true);
+    } else if (message instanceof CustomMapDump) {
+      const customMap = this.maps[message.name]; // eslint-disable-line no-underscore-dangle
+      if (typeof customMap !== 'undefined') {
+        customMap.process(message.queue, true);
+      }
     }
     this.publishToPeers(message);
   }
@@ -2011,6 +2045,12 @@ class Server extends EventEmitter {
     this.receivers.process(peerSync.receivers.queue, true);
     this.activeProviders.process(peerSync.activeProviders.queue, true);
     this.peerSubscriptions.process(peerSync.peerSubscriptions.queue, true);
+    for (const customMapDump of peerSync.customMapDumps) {
+      const customMap = this.maps[customMapDump.name]; // eslint-disable-line no-underscore-dangle
+      if (typeof customMap !== 'undefined') {
+        customMap.process(customMapDump.queue, true);
+      }
+    }
     const peerConnection = this.peerConnections.get(peerSync.id);
     this.logger.info(`Sending peer sync response to peer ${peerSync.id}`);
     if (peerConnection) {
@@ -2046,6 +2086,11 @@ class Server extends EventEmitter {
       this.logger.error(`Unable to sync peer ${peerId}, readystate ${peerConnection.ws.readyState}`);
       return;
     }
+    const customMapDumps = [];
+    for (const [name, customMap] of this._customMaps) { // eslint-disable-line no-underscore-dangle
+      const customMapDump = new CustomMapDump(name, customMap.dump());
+      customMapDumps.push(customMapDump);
+    }
     const peerSync = new PeerSync(
       this.id,
       new PeerDump(this.peers.dump()),
@@ -2053,6 +2098,7 @@ class Server extends EventEmitter {
       new ReceiverDump(this.receivers.dump()),
       new ActiveProviderDump(this.activeProviders.dump()),
       new PeerSubscriptionDump(this.peerSubscriptions.dump()),
+      customMapDumps,
     );
     const peerSyncResponsePromise = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -2116,6 +2162,11 @@ class Server extends EventEmitter {
     if (!socket) {
       throw new Error(`Can not publish data to peer ${peerId} (${socketId}), socket does not exist`);
     }
+    const customMapDumps = [];
+    for (const [name, customMap] of this._customMaps) { // eslint-disable-line no-underscore-dangle
+      const customMapDump = new CustomMapDump(name, customMap.dump());
+      customMapDumps.push(customMapDump);
+    }
     const peerSync = new PeerSync(
       this.id,
       new PeerDump(this.peers.dump()),
@@ -2123,6 +2174,7 @@ class Server extends EventEmitter {
       new ReceiverDump(this.receivers.dump()),
       new ActiveProviderDump(this.activeProviders.dump()),
       new PeerSubscriptionDump(this.peerSubscriptions.dump()),
+      customMapDumps,
     );
     const peerSyncResponsePromise = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -2414,6 +2466,8 @@ class Server extends EventEmitter {
                                               
                                                        
                          
+                                                           
+                                                                   
 }
 
 module.exports = Server;
