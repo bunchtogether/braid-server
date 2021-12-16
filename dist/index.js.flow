@@ -37,6 +37,7 @@ const {
   EventSubscribeResponse,
   EventUnsubscribe,
   BraidEvent,
+  BraidSocketEvent,
   PublishRequest,
   PublishResponse,
   PublisherOpen,
@@ -574,7 +575,7 @@ class Server extends EventEmitter {
             return;
           }
           const message = decode(Buffer.from(data));
-          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer || message instanceof DataSyncInsertions || message instanceof DataSyncDeletions || message instanceof CustomMapDump) {
+          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof BraidSocketEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer || message instanceof DataSyncInsertions || message instanceof DataSyncDeletions || message instanceof CustomMapDump) {
             if (!this.peerSockets.hasSource(socketId)) {
               this.logger.error(`Received dump from non-peer at ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId})`);
               return;
@@ -759,6 +760,15 @@ class Server extends EventEmitter {
     this.publishToPeers(new BraidEvent(name, args, id, [this.id]));
   }
 
+  emitToSocket(name: string, peerId:number, socketId:number, ...args:Array<any>) {
+    const id = uuid.v4();
+    if (this.id === peerId) {
+      this.publishSocketEvent(name, args, socketId, id);
+    } else {
+      this.publishToPeers(new BraidSocketEvent(name, args, peerId, socketId, id, [this.id]));
+    }
+  }
+
   /**
    * Throw an error if any internal data exists. Intended for tests and debugging.
    * @return {void}
@@ -834,7 +844,7 @@ class Server extends EventEmitter {
    * @param {ProviderDump|DataDump|ActiveProviderDump|ReceiverDump|PeerDump|PeerSubscriptionDump} obj - Object to send, should have "ids" property
    * @return {void}
    */
-  publishToPeers(obj:ProviderDump|DataDump|ActiveProviderDump|ReceiverDump|PeerDump|PeerSubscriptionDump|BraidEvent|CustomMapDump) {
+  publishToPeers(obj:ProviderDump|DataDump|ActiveProviderDump|ReceiverDump|PeerDump|PeerSubscriptionDump|BraidEvent|BraidSocketEvent|CustomMapDump) {
     const peerIds = obj.ids;
     const peerConnections = [];
     const peerUWSSockets = [];
@@ -1170,7 +1180,7 @@ class Server extends EventEmitter {
    * @param {DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse|BraidEvent} message Message to handle
    * @return {void}
    */
-  handleMessage(message:DataDump|ProviderDump|ActiveProviderDump|ReceiverDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse|BraidEvent|PublisherOpen|PublisherClose|PublisherPeerMessage|MultipartContainer|DataSyncInsertions|DataSyncDeletions|CustomMapDump, peerId:number) {
+  handleMessage(message:DataDump|ProviderDump|ActiveProviderDump|ReceiverDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse|BraidEvent|BraidSocketEvent|PublisherOpen|PublisherClose|PublisherPeerMessage|MultipartContainer|DataSyncInsertions|DataSyncDeletions|CustomMapDump, peerId:number) {
     if (message instanceof DataSyncInsertions) {
       this.data.process([message.insertions, []], true);
       return;
@@ -1185,6 +1195,17 @@ class Server extends EventEmitter {
       return;
     } else if (message instanceof PeerSyncResponse) {
       this.emit('peerSyncResponse', message.value);
+      return;
+    } else if (message instanceof BraidSocketEvent) {
+      if (this.messageHashes.has(message.id)) {
+        return;
+      }
+      this.messageHashes.set(message.id, true);
+      if (this.id === message.peerId) {
+        this.publishSocketEvent(message.name, message.args, message.socketId, message.id);
+      } else {
+        this.publishToPeers(message);
+      }
       return;
     } else if (message instanceof BraidEvent) {
       if (this.messageHashes.has(message.id)) {
@@ -1249,6 +1270,20 @@ class Server extends EventEmitter {
       }
       ws.send(encoded, true, false);
     }
+  }
+
+  /**
+   * Publish event to subscribers.
+   * @param {BraidEvent} Event object
+   * @return {void}
+   */
+  publishSocketEvent(name:string, args:Array<any>, socketId: number, id:string) {
+    const ws = this.sockets.get(socketId);
+    if (!ws) {
+      throw new Error(`Can not publish data to event subscriber ${socketId}, socket does not exist`);
+    }
+    const subscriberEvent = new BraidEvent(name, args, id, []);
+    ws.send(this.encode(subscriberEvent), true, false);
   }
 
   /**

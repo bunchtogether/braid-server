@@ -15,6 +15,7 @@ jest.setTimeout(5000);
 describe(`${count} peers in a ring with an event subscriber client`, () => {
   let client;
   const peers = [];
+  let clientPeerIdAndSocketId;
   beforeAll(async () => {
     for (let i = 0; i < count; i += 1) {
       const port = startPort + i;
@@ -36,6 +37,14 @@ describe(`${count} peers in a ring with an event subscriber client`, () => {
     await Promise.all(peerPromises);
     client = new Client();
     await client.open(`ws://localhost:${startPort + Math.floor(Math.random() * count)}`, {});
+    for (const { server } of peers) {
+      for (const socketId of [...server.sockets.keys()]) {
+        if (server.peerSockets.hasSource(socketId)) {
+          continue;
+        }
+        clientPeerIdAndSocketId = [server.id, socketId];
+      }
+    }
   });
 
   test('Should add and remove event listeners', async () => {
@@ -59,6 +68,39 @@ describe(`${count} peers in a ring with an event subscriber client`, () => {
         server.emitToClients(name, ...emittedArgs);
       });
       client.removeServerEventListener(name);
+    }
+  });
+
+  test('Should listen for socket events', async () => {
+    const clientB = new Client();
+    await clientB.open(`ws://localhost:${startPort}`, {});
+    if (typeof clientPeerIdAndSocketId === 'undefined') {
+      throw new Error('Client peer ID / socket ID pair does not exist');
+    }
+    const [peerId, socketId] = clientPeerIdAndSocketId;
+    let didReceiveCallbackB = false;
+    const callbackB = () => {
+      didReceiveCallbackB = true;
+    };
+    for (const { server } of peers) {
+      const name = uuid.v4();
+      const emittedArgs = [uuid.v4(), uuid.v4(), uuid.v4()];
+      await clientB.addServerEventListener(name, callbackB);
+      await new Promise(async (resolve) => { // eslint-disable-line no-loop-func
+        const callback = (...args) => {
+          if (isEqual(emittedArgs, args)) {
+            resolve();
+          }
+        };
+        await client.addServerEventListener(name, callback);
+        server.emitToSocket(name, peerId, socketId, ...emittedArgs);
+      });
+      client.removeServerEventListener(name);
+      clientB.removeServerEventListener(name);
+    }
+    await clientB.close();
+    if (didReceiveCallbackB) {
+      throw new Error('Client received message intended for a different socket');
     }
   });
 
