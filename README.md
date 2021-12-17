@@ -46,73 +46,75 @@ See also:
         *   [Parameters](#parameters-13)
     *   [publishEvent](#publishevent)
         *   [Parameters](#parameters-14)
-    *   [publishData](#publishdata)
+    *   [publishSocketEvent](#publishsocketevent)
         *   [Parameters](#parameters-15)
-    *   [addEventSubscription](#addeventsubscription)
+    *   [publishData](#publishdata)
         *   [Parameters](#parameters-16)
-    *   [removeEventSubscription](#removeeventsubscription)
+    *   [addEventSubscription](#addeventsubscription)
         *   [Parameters](#parameters-17)
-    *   [removeEventSubscriptions](#removeeventsubscriptions)
+    *   [removeEventSubscription](#removeeventsubscription)
         *   [Parameters](#parameters-18)
-    *   [addPublisher](#addpublisher)
+    *   [removeEventSubscriptions](#removeeventsubscriptions)
         *   [Parameters](#parameters-19)
-    *   [removePublisher](#removepublisher)
+    *   [addPublisher](#addpublisher)
         *   [Parameters](#parameters-20)
-    *   [removePublishers](#removepublishers)
+    *   [removePublisher](#removepublisher)
         *   [Parameters](#parameters-21)
-    *   [addSubscription](#addsubscription)
+    *   [removePublishers](#removepublishers)
         *   [Parameters](#parameters-22)
-    *   [removeSubscription](#removesubscription)
+    *   [addSubscription](#addsubscription)
         *   [Parameters](#parameters-23)
-    *   [removeSubscriptions](#removesubscriptions)
+    *   [removeSubscription](#removesubscription)
         *   [Parameters](#parameters-24)
-    *   [assignProvider](#assignprovider)
+    *   [removeSubscriptions](#removesubscriptions)
         *   [Parameters](#parameters-25)
-    *   [provide](#provide)
+    *   [assignProvider](#assignprovider)
         *   [Parameters](#parameters-26)
-    *   [unprovide](#unprovide)
+    *   [provide](#provide)
         *   [Parameters](#parameters-27)
-    *   [assignReceiver](#assignreceiver)
+    *   [unprovide](#unprovide)
         *   [Parameters](#parameters-28)
-    *   [unassignReceiver](#unassignreceiver)
+    *   [assignReceiver](#assignreceiver)
         *   [Parameters](#parameters-29)
-    *   [handlePublisherOpen](#handlepublisheropen)
+    *   [unassignReceiver](#unassignreceiver)
         *   [Parameters](#parameters-30)
-    *   [handlePublisherClose](#handlepublisherclose)
+    *   [handlePublisherOpen](#handlepublisheropen)
         *   [Parameters](#parameters-31)
-    *   [receive](#receive)
+    *   [handlePublisherClose](#handlepublisherclose)
         *   [Parameters](#parameters-32)
-    *   [unreceive](#unreceive)
+    *   [receive](#receive)
         *   [Parameters](#parameters-33)
+    *   [unreceive](#unreceive)
+        *   [Parameters](#parameters-34)
     *   [updatePeers](#updatepeers)
     *   [connectedPeers](#connectedpeers)
-        *   [Parameters](#parameters-34)
+        *   [Parameters](#parameters-35)
     *   [prunePeers](#prunepeers)
     *   [removePeer](#removepeer)
-        *   [Parameters](#parameters-35)
-    *   [addPeer](#addpeer)
         *   [Parameters](#parameters-36)
+    *   [addPeer](#addpeer)
+        *   [Parameters](#parameters-37)
     *   [close](#close)
     *   [connectToPeer](#connecttopeer)
-        *   [Parameters](#parameters-37)
-    *   [disconnectFromPeer](#disconnectfrompeer)
         *   [Parameters](#parameters-38)
-    *   [reconnectToPeer](#reconnecttopeer)
+    *   [disconnectFromPeer](#disconnectfrompeer)
         *   [Parameters](#parameters-39)
-    *   [handlePeerSync](#handlepeersync)
+    *   [reconnectToPeer](#reconnecttopeer)
         *   [Parameters](#parameters-40)
-    *   [syncPeerConnection](#syncpeerconnection)
+    *   [handlePeerSync](#handlepeersync)
         *   [Parameters](#parameters-41)
-    *   [syncPeerSocket](#syncpeersocket)
+    *   [syncPeerConnection](#syncpeerconnection)
         *   [Parameters](#parameters-42)
-    *   [hasPeer](#haspeer)
+    *   [syncPeerSocket](#syncpeersocket)
         *   [Parameters](#parameters-43)
-    *   [waitForPeerConnect](#waitforpeerconnect)
+    *   [hasPeer](#haspeer)
         *   [Parameters](#parameters-44)
-    *   [waitForPeerDisconnect](#waitforpeerdisconnect)
+    *   [waitForPeerConnect](#waitforpeerconnect)
         *   [Parameters](#parameters-45)
-    *   [waitForSocketCredentialQueue](#waitforsocketcredentialqueue)
+    *   [waitForPeerDisconnect](#waitforpeerdisconnect)
         *   [Parameters](#parameters-46)
+    *   [waitForSocketCredentialQueue](#waitforsocketcredentialqueue)
+        *   [Parameters](#parameters-47)
 
 ### Server
 
@@ -283,6 +285,20 @@ Publish event to subscribers.
 
 *   `name`  
 *   `args`  
+*   `id`  
+*   `Event` **BraidEvent** object
+
+Returns **void** 
+
+#### publishSocketEvent
+
+Publish event to subscribers.
+
+##### Parameters
+
+*   `name`  
+*   `args`  
+*   `socketId`  
 *   `id`  
 *   `Event` **BraidEvent** object
 

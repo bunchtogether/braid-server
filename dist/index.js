@@ -49,6 +49,7 @@ const {
   DataSyncInsertions,
   DataSyncDeletions,
   CustomMapDump,
+  CustomSetDump,
   Unpublish,
   isNativeAccelerationEnabled,
 } = require('@bunchtogether/braid-messagepack');
@@ -263,6 +264,11 @@ class Server extends EventEmitter {
     //   Value: ObservedRemoveMap
     this._customMaps = new Map(); // eslint-disable-line no-underscore-dangle
 
+    // User defined observed remove sets
+    //   Key: string
+    //   Value: ObservedRemoveSet
+    this._customSets = new Map(); // eslint-disable-line no-underscore-dangle
+
     const mapsGetter = (target                                           , name       ) => {
       const existing = this._customMaps.get(name); // eslint-disable-line no-underscore-dangle
       if (typeof existing !== 'undefined') {
@@ -280,6 +286,26 @@ class Server extends EventEmitter {
       get: mapsGetter,
       set() {
         throw new TypeError('Can not set Server.maps values');
+      },
+    });
+
+    const setsGetter = (target                                   , name       ) => {
+      const existing = this._customSets.get(name); // eslint-disable-line no-underscore-dangle
+      if (typeof existing !== 'undefined') {
+        return existing;
+      }
+      const set = new ObservedRemoveSet([], { bufferPublishing: 0 });
+      set.on('publish', (queue                     ) => {
+        this.publishToPeers(new CustomSetDump(name, queue, [this.id]));
+      });
+      this._customSets.set(name, set); // eslint-disable-line no-underscore-dangle
+      return set;
+    };
+
+    this.sets = new Proxy({}, {
+      get: setsGetter,
+      set() {
+        throw new TypeError('Can not set Server.sets values');
       },
     });
 
@@ -575,7 +601,7 @@ class Server extends EventEmitter {
             return;
           }
           const message = decode(Buffer.from(data));
-          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof BraidSocketEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer || message instanceof DataSyncInsertions || message instanceof DataSyncDeletions || message instanceof CustomMapDump) {
+          if (message instanceof DataDump || message instanceof PeerDump || message instanceof ProviderDump || message instanceof ActiveProviderDump || message instanceof ReceiverDump || message instanceof PeerSubscriptionDump || message instanceof PeerSync || message instanceof PeerSyncResponse || message instanceof BraidEvent || message instanceof BraidSocketEvent || message instanceof PublisherOpen || message instanceof PublisherClose || message instanceof PublisherPeerMessage || message instanceof MultipartContainer || message instanceof DataSyncInsertions || message instanceof DataSyncDeletions || message instanceof CustomMapDump || message instanceof CustomSetDump) {
             if (!this.peerSockets.hasSource(socketId)) {
               this.logger.error(`Received dump from non-peer at ${ws.credentials.ip ? ws.credentials.ip : 'unknown IP'} (${socketId})`);
               return;
@@ -844,7 +870,7 @@ class Server extends EventEmitter {
    * @param {ProviderDump|DataDump|ActiveProviderDump|ReceiverDump|PeerDump|PeerSubscriptionDump} obj - Object to send, should have "ids" property
    * @return {void}
    */
-  publishToPeers(obj                                                                                                                              ) {
+  publishToPeers(obj                                                                                                                                            ) {
     const peerIds = obj.ids;
     const peerConnections = [];
     const peerUWSSockets = [];
@@ -1180,7 +1206,7 @@ class Server extends EventEmitter {
    * @param {DataDump|ProviderDump|ActiveProviderDump|PeerDump|PeerSubscriptionDump|PeerSync|PeerSyncResponse|BraidEvent} message Message to handle
    * @return {void}
    */
-  handleMessage(message                                                                                                                                                                                                                                                                  , peerId       ) {
+  handleMessage(message                                                                                                                                                                                                                                                                                , peerId       ) {
     if (message instanceof DataSyncInsertions) {
       this.data.process([message.insertions, []], true);
       return;
@@ -1247,6 +1273,11 @@ class Server extends EventEmitter {
       const customMap = this.maps[message.name]; // eslint-disable-line no-underscore-dangle
       if (typeof customMap !== 'undefined') {
         customMap.process(message.queue, true);
+      }
+    } else if (message instanceof CustomSetDump) {
+      const customSet = this.sets[message.name]; // eslint-disable-line no-underscore-dangle
+      if (typeof customSet !== 'undefined') {
+        customSet.process(message.queue, true);
       }
     }
     this.publishToPeers(message);
@@ -2126,6 +2157,11 @@ class Server extends EventEmitter {
       const customMapDump = new CustomMapDump(name, customMap.dump());
       customMapDumps.push(customMapDump);
     }
+    const customSetDumps = [];
+    for (const [name, customSet] of this._customSets) { // eslint-disable-line no-underscore-dangle
+      const customSetDump = new CustomSetDump(name, customSet.dump());
+      customSetDumps.push(customSetDump);
+    }
     const peerSync = new PeerSync(
       this.id,
       new PeerDump(this.peers.dump()),
@@ -2134,6 +2170,7 @@ class Server extends EventEmitter {
       new ActiveProviderDump(this.activeProviders.dump()),
       new PeerSubscriptionDump(this.peerSubscriptions.dump()),
       customMapDumps,
+      customSetDumps,
     );
     const peerSyncResponsePromise = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -2202,6 +2239,11 @@ class Server extends EventEmitter {
       const customMapDump = new CustomMapDump(name, customMap.dump());
       customMapDumps.push(customMapDump);
     }
+    const customSetDumps = [];
+    for (const [name, customSet] of this._customSets) { // eslint-disable-line no-underscore-dangle
+      const customSetDump = new CustomSetDump(name, customSet.dump());
+      customSetDumps.push(customSetDump);
+    }
     const peerSync = new PeerSync(
       this.id,
       new PeerDump(this.peers.dump()),
@@ -2210,6 +2252,7 @@ class Server extends EventEmitter {
       new ActiveProviderDump(this.activeProviders.dump()),
       new PeerSubscriptionDump(this.peerSubscriptions.dump()),
       customMapDumps,
+      customSetDumps,
     );
     const peerSyncResponsePromise = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -2503,6 +2546,8 @@ class Server extends EventEmitter {
                          
                                                            
                                                                    
+                                                   
+                                                           
 }
 
 module.exports = Server;

@@ -71,4 +71,59 @@ expect.extend({
       pass: false,
     };
   },
+  async toReceiveMember(received, value) {
+    if (typeof value === 'undefined') {
+      throw new TypeError('Set cannot receive undefined member');
+    }
+    if (received.has(value)) {
+      return {
+        message: () => `${this.utils.matcherHint('toReceiveMember', undefined, undefined, {})
+        }\n\n` +
+            `Expected: ${this.utils.printExpected(value)}\n` +
+            `Contains: ${this.utils.printReceived([...received])}`,
+        pass: true,
+      };
+    }
+    const pass = await new Promise((resolve) => {
+      const handleAdd = (v) => {
+        if (!this.equals(v, value)) {
+          return;
+        }
+        clearTimeout(timeout);
+        received.removeListener('add', handleAdd);
+        resolve(true);
+      };
+      const timeout = setTimeout(() => {
+        received.removeListener('add', handleAdd);
+        resolve(false);
+      }, 5000);
+      received.on('add', handleAdd);
+    });
+    if (pass) {
+      return {
+        message: () => `${this.utils.matcherHint('toReceiveMember', undefined, undefined, {})
+        }\n\n` +
+            `Expected: ${this.utils.printExpected(value)}\n` +
+            `Contains: ${this.utils.printReceived([...received])}`,
+        pass: true,
+      };
+    }
+    return {
+      message: () => {
+        const diffString = diff(value, undefined, {
+          expand: this.expand,
+        });
+        return (
+          `${this.utils.matcherHint('toReceiveMember', undefined, undefined, {})
+          }\n\n${
+            diffString && diffString.includes('- Expect')
+              ? `Difference:\n\n${diffString}`
+              : `Expected: ${this.utils.printExpected(value)}\n` +
+              `Contains: ${this.utils.printReceived([...received])}`}`
+        );
+      },
+      pass: false,
+    };
+  },
+
 });

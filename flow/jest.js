@@ -251,6 +251,7 @@ type JestJQueryMatchersType = {
 
 type JestBraidMatchersType = {
   toReceiveProperty(key: any, value: any): Promise<void>;
+  toReceiveMember(value: any): Promise<void>;
 };
 
 // Jest Extended Matchers: https://github.com/jest-community/jest-extended
