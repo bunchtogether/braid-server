@@ -29,7 +29,7 @@ class PublisherServerManager {
 
   hasPublisher(key:string, socketId:number) {
     const sessionKey = `${key}:${socketId}`;
-    this.map.hasSource(sessionKey);
+    return this.map.hasSource(sessionKey);
   }
 
   publishers(serverId:number):Array<[string, number]> {
