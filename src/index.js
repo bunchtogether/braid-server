@@ -13,6 +13,8 @@ const DirectedGraphMap = require('directed-graph-map');
 const LruCache = require('lru-cache');
 const { EventEmitter } = require('events');
 const PeerConnection = require('./peer-connection');
+const PublisherServerManager = require('./publisher-server-manager');
+const PublisherSessionManager = require('./publisher-session-manager');
 const makeLogger = require('./lib/logger');
 const requestIp = require('./lib/request-ip');
 const {
@@ -202,17 +204,13 @@ class Server extends EventEmitter {
     // Map of Keys to callbaks
     //   Source: {Key}:{socketId}
     //   Target: Matching regex string
-    this.receiveSessions = new DirectedGraphMap();
+    this.receiverSessions = new PublisherSessionManager();
 
-    // Map of Keys to callbaks
-    //   Source: {Key}:{socketId}
-    //   Target: Matching regex string
-    this.publishSessions = new DirectedGraphMap();
+    // Tracks relationships of publishing socket / key pairs to receiving regexes
+    this.publisherSessions = new PublisherSessionManager();
 
-    // Map of incoming publishers to Peer IDs
-    //   Source: {Key}:{socketId}
-    //   Target: Peer ID
-    this.publisherPeers = new DirectedGraphMap();
+    // Tracks relationships of publishing socket / key pairs to receiving servers
+    this.publisherServers = new PublisherServerManager();
 
     // Active (incoming) sockets
     //   Key: Socket ID
@@ -482,10 +480,7 @@ class Server extends EventEmitter {
           if (regexStrings.includes(previousRegexString)) {
             continue;
           }
-          const sessionKeys = this.publishSessions.getSources(previousRegexString);
-          for (const sessionKey of sessionKeys) {
-            const [key, socketIdString] = sessionKey.split(':');
-            const socketId = parseInt(socketIdString, 10);
+          for (const [key, socketId] of this.publisherSessions.publishers(previousRegexString)) {
             this.unassignReceiver(key, socketId);
           }
         }
@@ -854,14 +849,14 @@ class Server extends EventEmitter {
     if (this.receiverPeers.size > 0) {
       throw new Error(`${this.id}: ${this.receiverPeers.size} referenced active receivers`);
     }
-    if (this.receiveSessions.size > 0) {
-      throw new Error(`${this.id}: ${this.receiveSessions.size} referenced receive sessions`);
+    if (this.receiverSessions.size > 0) {
+      throw new Error(`${this.id}: ${this.receiverSessions.size} referenced receive sessions`);
     }
-    if (this.publisherPeers.size > 0) {
-      throw new Error(`${this.id}: ${this.publisherPeers.size} referenced publisher peers`);
+    if (this.publisherServers.size > 0) {
+      throw new Error(`${this.id}: ${this.publisherServers.size} referenced publisher servers`);
     }
-    if (this.publishSessions.size > 0) {
-      throw new Error(`${this.id}: ${this.publisherPeers.size} referenced publisher sessions`);
+    if (this.publisherSessions.size > 0) {
+      throw new Error(`${this.id}: ${this.publisherSessions.size} referenced publisher sessions`);
     }
   }
 
@@ -1571,7 +1566,7 @@ class Server extends EventEmitter {
     for (const [peerId, regexMap] of this.receiverRegexes) {
       for (const [regexString, regex] of regexMap) { // eslint-disable-line no-unused-vars
         if (regex.test(key)) {
-          this.publishSessions.addEdge(sessionKey, regexString);
+          this.publisherSessions.add(key, socketId, regexString);
           if (this.id === peerId) {
             this.receiverPeers.addEdge(sessionKey, peerId);
             this.handlePublisherOpen(this.id, regexString, key, socketId, credentials);
@@ -1601,7 +1596,7 @@ class Server extends EventEmitter {
     const sessionKey = `${key}:${socketId}`;
     const peerIds = new Set(this.receiverPeers.getTargets(sessionKey));
     this.receiverPeers.removeSource(sessionKey);
-    this.publishSessions.removeSource(sessionKey);
+    this.publisherSessions.removePublisher(key, socketId);
     for (const peerId of peerIds) {
       if (this.id === peerId) {
         this.handlePublisherClose(key, socketId);
@@ -1636,9 +1631,8 @@ class Server extends EventEmitter {
       this.logger.warn(`Unable to find matching receiver callbacks for "${regexString}"`);
       return;
     }
-    const sessionKey = `${key}:${socketId}`;
-    this.publisherPeers.addEdge(sessionKey, peerId);
-    this.receiveSessions.addEdge(sessionKey, regexString);
+    this.publisherServers.add(key, socketId, peerId);
+    this.receiverSessions.add(key, socketId, regexString);
     const openCallback = callbacks[1];
     if (typeof openCallback === 'function') {
       openCallback(key, socketId, credentials);
@@ -1652,10 +1646,9 @@ class Server extends EventEmitter {
    * @return {void}
    */
   handlePublisherClose(key:string, socketId:number) {
-    const sessionKey = `${key}:${socketId}`;
-    const regexStrings = new Set(this.receiveSessions.getTargets(sessionKey));
-    this.publisherPeers.removeSource(sessionKey);
-    this.receiveSessions.removeSource(sessionKey);
+    const regexStrings = this.receiverSessions.regexes(key, socketId);
+    this.publisherServers.removePublisher(key, socketId);
+    this.receiverSessions.removePublisher(key, socketId);
     for (const regexString of regexStrings) {
       const callbacks = this.receiveCallbacks.get(regexString);
       if (!callbacks) {
@@ -1684,8 +1677,7 @@ class Server extends EventEmitter {
   }
 
   handlePublisherPeerMessage(key:string, socketId:number, message:any) {
-    const sessionKey = `${key}:${socketId}`;
-    const regexStrings = this.receiveSessions.getTargets(sessionKey);
+    const regexStrings = this.receiverSessions.regexes(key, socketId);
     for (const regexString of regexStrings) {
       const callbacks = this.receiveCallbacks.get(regexString);
       if (!callbacks) {
@@ -1719,9 +1711,7 @@ class Server extends EventEmitter {
    * @return {void}
    */
   unreceive(regexString:string) {
-    for (const sessionKey of this.receiveSessions.getSources(regexString)) {
-      const [key, socketIdString] = sessionKey.split(':');
-      const socketId = parseInt(socketIdString, 10);
+    for (const [key, socketId] of this.receiverSessions.publishers(regexString)) {
       this.handlePublisherClose(key, socketId);
     }
     const regexStrings = new Set(this.receivers.get(this.id));
@@ -1816,13 +1806,10 @@ class Server extends EventEmitter {
       const socketId = parseInt(socketIdString, 10);
       this.assignReceiver(key, socketId);
     }
-    const publisherPeerSessionKeys = this.publisherPeers.getSources(peerId);
-    for (const sessionKey of publisherPeerSessionKeys) {
-      const [key, socketIdString] = sessionKey.split(':');
-      const socketId = parseInt(socketIdString, 10);
+    for (const [key, socketId] of this.publisherServers.publishers(peerId)) {
       this.handlePublisherClose(key, socketId);
     }
-    this.publisherPeers.removeTarget(peerId);
+    this.publisherServers.removeServer(peerId);
   }
 
 
@@ -1888,13 +1875,10 @@ class Server extends EventEmitter {
       }
     }
     this.receiverPeers.removeTarget(this.id);
-    const publisherPeerSessionKeys = this.publisherPeers.getSources(this.id);
-    for (const sessionKey of publisherPeerSessionKeys) {
-      const [key, socketIdString] = sessionKey.split(':');
-      const socketId = parseInt(socketIdString, 10);
+    for (const [key, socketId] of this.publisherServers.publishers(this.id)) {
       this.handlePublisherClose(key, socketId);
     }
-    this.publisherPeers.removeTarget(this.id);
+    this.publisherServers.removeServer(this.id);
     this.receiveCallbacks.clear();
     if (Date.now() > timeout) {
       this.logger.warn('Closed after timeout');
@@ -2528,9 +2512,9 @@ class Server extends EventEmitter {
   declare activeProviders:ObservedRemoveMap<string, [number, string]>;
   declare receivers:ObservedRemoveMap<number, Array<string>>;
   declare receiveCallbacks:Map<string, [((string, number, any) => void|Promise<void>) | void, ((string, number, Object) => void|Promise<void>) | void, ((string, number) => void|Promise<void>) | void]>;
-  declare receiveSessions: DirectedGraphMap<string, string>;
-  declare publishSessions: DirectedGraphMap<string, string>;
-  declare publisherPeers: DirectedGraphMap<string, number>;
+  declare receiverSessions: PublisherSessionManager;
+  declare publisherSessions: PublisherSessionManager;
+  declare publisherServers: PublisherServerManager;
   declare receiverPeers: DirectedGraphMap<string, number>;
   declare peerSubscriptions:ObservedRemoveSet<[number, string]>;
   declare peerSubscriptionMap:Map<string, Set<number>>;
