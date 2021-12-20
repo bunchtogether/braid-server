@@ -13,29 +13,30 @@ class PublisherSessionManager {
     return this.map.size;
   }
 
-  add(key       , socketId       , regexString       ) {
-    const sessionKey = `${key}:${socketId}`;
+  add(key       , serverId       , socketId       , regexString       ) {
+    const sessionKey = `${key}:${serverId}:${socketId}`;
     this.map.addEdge(sessionKey, regexString);
   }
 
-  removePublisher(key       , socketId       ) {
-    const sessionKey = `${key}:${socketId}`;
+  removePublisher(key       , serverId       , socketId       ) {
+    const sessionKey = `${key}:${serverId}:${socketId}`;
     this.map.removeSource(sessionKey);
   }
 
-  publishers(regexString       )                         {
+  publishers(regexString       )                                 {
     const results = [];
     const sessionKeys = this.map.getSources(regexString);
     for (const sessionKey of sessionKeys) {
-      const [key, socketIdString] = sessionKey.split(':');
+      const [key, serverIdString, socketIdString] = sessionKey.split(':');
+      const serverId = parseInt(serverIdString, 10);
       const socketId = parseInt(socketIdString, 10);
-      results.push([key, socketId]);
+      results.push([key, serverId, socketId]);
     }
     return results;
   }
 
-  regexes(key       , socketId       )               {
-    const sessionKey = `${key}:${socketId}`;
+  regexes(key       , serverId       , socketId       )               {
+    const sessionKey = `${key}:${serverId}:${socketId}`;
     return [...this.map.getTargets(sessionKey)];
   }
 }

@@ -801,20 +801,20 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
-"@bunchtogether/braid-client@1.2.9":
-  version "1.2.9"
-  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-client/-/braid-client-1.2.9.tgz#c8566dd8f087cf0829c0f1c82d80aff1ac396cba"
-  integrity sha512-07ItCrIkl5+N2dAuLwkdAldvFzZ5xr6E5a23b9LyZwGbxf8nfvuBkd/Sb4pVfRvmOYqCv/GH0a/DsiiXiSX/5w==
+"@bunchtogether/braid-client@1.2.10":
+  version "1.2.10"
+  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-client/-/braid-client-1.2.10.tgz#d261bfe3649552b0d8b36ce305465cba82acc778"
+  integrity sha512-KqAodT10kpe9WwXnHIRsdpSszYyYaeKuLSqxnEtAHT7ybV5ilwWMsHs4FqMlWVTvif1pYiC4VVPIVdgQh6u2gg==
   dependencies:
-    "@bunchtogether/braid-messagepack" "1.2.9"
+    "@bunchtogether/braid-messagepack" "1.2.10"
     isomorphic-ws "^4.0.1"
     observed-remove "^2.2.27"
     p-queue "^6.6.2"
 
-"@bunchtogether/braid-messagepack@1.2.9":
-  version "1.2.9"
-  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-messagepack/-/braid-messagepack-1.2.9.tgz#cb40be4fb9674c01a533621d35cdfefe72a43584"
-  integrity sha512-qlzYBUlmEeGaO/7qpd448hkBpg74B0zNgKTkVjgiD/KuM0iKqxdKRRiiaKnG4rnbHecpfThRJUG9N834iYpvEg==
+"@bunchtogether/braid-messagepack@1.2.10":
+  version "1.2.10"
+  resolved "https://registry.yarnpkg.com/@bunchtogether/braid-messagepack/-/braid-messagepack-1.2.10.tgz#42caeb6e07d0c569c7f4e11a0df5e74badcda043"
+  integrity sha512-zILP0QSnwX7NtiOS77vy/uM8gNkgsDDmV7YF/6l3ND9W/6TL2qiicDRrUctwgKkE7OBTd0gTY9FNbzMnebLI/Q==
   dependencies:
     msgpackr "^1.5.1"
 

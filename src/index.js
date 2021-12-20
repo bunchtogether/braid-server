@@ -476,7 +476,7 @@ class Server extends EventEmitter {
           if (regexStrings.includes(previousRegexString)) {
             continue;
           }
-          for (const [key, socketId] of this.publisherSessions.publishers(previousRegexString)) {
+          for (const [key, serverId, socketId] of this.publisherSessions.publishers(previousRegexString)) { // eslint-disable-line no-unused-vars
             this.unassignReceiver(key, socketId);
           }
         }
@@ -1229,13 +1229,13 @@ class Server extends EventEmitter {
       this.publishToPeers(message);
       return;
     } else if (message instanceof PublisherOpen) {
-      this.handlePublisherOpen(peerId, message.regexString, message.key, message.socketId, message.credentials);
+      this.handlePublisherOpen(message.regexString, message.key, message.serverId, message.socketId, message.credentials);
       return;
     } else if (message instanceof PublisherClose) {
-      this.handlePublisherClose(message.key, message.socketId);
+      this.handlePublisherClose(message.key, message.serverId, message.socketId);
       return;
     } else if (message instanceof PublisherPeerMessage) {
-      this.handlePublisherPeerMessage(message.key, message.socketId, message.message);
+      this.handlePublisherPeerMessage(message.key, message.serverId, message.socketId, message.message);
       return;
     }
     const hash = hash32(message.queue);
@@ -1557,10 +1557,10 @@ class Server extends EventEmitter {
     for (const [peerId, regexMap] of this.receiverRegexes) {
       for (const [regexString, regex] of regexMap) { // eslint-disable-line no-unused-vars
         if (regex.test(key)) {
-          this.publisherSessions.add(key, socketId, regexString);
           if (this.id === peerId) {
-            this.receiverServers.add(key, socketId, peerId);
-            this.handlePublisherOpen(this.id, regexString, key, socketId, credentials);
+            this.publisherSessions.add(key, this.id, socketId, regexString);
+            this.receiverServers.add(key, socketId, this.id);
+            this.handlePublisherOpen(regexString, key, this.id, socketId, credentials);
             return;
           }
           peerIdWithRegexes.push([peerId, regexString]);
@@ -1573,8 +1573,9 @@ class Server extends EventEmitter {
       return;
     }
     const [activePeerId, regexString] = peerIdWithRegexes[Math.floor(Math.random() * peerIdWithRegexes.length)];
+    this.publisherSessions.add(key, activePeerId, socketId, regexString);
     this.receiverServers.add(key, socketId, activePeerId);
-    this.sendToPeer(activePeerId, new PublisherOpen(regexString, key, socketId, credentials));
+    this.sendToPeer(activePeerId, new PublisherOpen(regexString, key, this.id, socketId, credentials));
   }
 
   /**
@@ -1584,17 +1585,22 @@ class Server extends EventEmitter {
    * @return {void}
    */
   unassignReceiver(key:string, socketId: number) {
-    const peerIds = this.receiverServers.servers(key, socketId);
+    const ws = this.sockets.get(socketId);
+    if (!ws) {
+      this.logger.error(`Cannot unassign "${key}" receiver for ${socketId}, socket does not exist`);
+      return;
+    }
+    const serverIds = this.receiverServers.servers(key, socketId);
     this.receiverServers.removePublisher(key, socketId);
-    this.publisherSessions.removePublisher(key, socketId);
-    for (const peerId of peerIds) {
-      if (this.id === peerId) {
-        this.handlePublisherClose(key, socketId);
+    for (const serverId of serverIds) {
+      this.publisherSessions.removePublisher(key, serverId, socketId);
+      if (this.id === serverId) {
+        this.handlePublisherClose(key, this.id, socketId);
       } else {
-        this.sendToPeer(peerId, new PublisherClose(key, socketId));
+        this.sendToPeer(serverId, new PublisherClose(key, this.id, socketId));
       }
     }
-    if (peerIds.length === 0) {
+    if (serverIds.length === 0) {
       this.logger.warn(`Unable to unassign receiver for socket ${socketId} with key "${key}"`);
     }
   }
@@ -1606,7 +1612,7 @@ class Server extends EventEmitter {
    * @param {Object} credentials Credentials object
    * @return {void}
    */
-  handlePublisherOpen(peerId:number, regexString:string, key:string, socketId:number, credentials:Object) {
+  handlePublisherOpen(regexString:string, key:string, serverId:number, socketId:number, credentials:Object) {
     const regexMap = this.receiverRegexes.get(this.id);
     if (!regexMap) {
       this.logger.warn(`Unable to find matching receiver regexes for "${key}"`);
@@ -1621,11 +1627,11 @@ class Server extends EventEmitter {
       this.logger.warn(`Unable to find matching receiver callbacks for "${regexString}"`);
       return;
     }
-    this.publisherServers.add(key, socketId, peerId);
-    this.receiverSessions.add(key, socketId, regexString);
+    this.publisherServers.add(key, socketId, serverId);
+    this.receiverSessions.add(key, serverId, socketId, regexString);
     const openCallback = callbacks[1];
     if (typeof openCallback === 'function') {
-      openCallback(key, socketId, credentials);
+      openCallback(key, serverId, socketId, credentials);
     }
   }
 
@@ -1635,10 +1641,10 @@ class Server extends EventEmitter {
    * @param {number} socketId Socket ID of the peer
    * @return {void}
    */
-  handlePublisherClose(key:string, socketId:number) {
-    const regexStrings = this.receiverSessions.regexes(key, socketId);
+  handlePublisherClose(key:string, serverId:number, socketId:number) {
+    const regexStrings = this.receiverSessions.regexes(key, serverId, socketId);
     this.publisherServers.removePublisher(key, socketId);
-    this.receiverSessions.removePublisher(key, socketId);
+    this.receiverSessions.removePublisher(key, serverId, socketId);
     for (const regexString of regexStrings) {
       const callbacks = this.receiveCallbacks.get(regexString);
       if (!callbacks) {
@@ -1646,27 +1652,27 @@ class Server extends EventEmitter {
       }
       const closeCallback = callbacks[2];
       if (typeof closeCallback === 'function') {
-        closeCallback(key, socketId);
+        closeCallback(key, serverId, socketId);
         return;
       }
     }
-    this.logger.warn(`Unable to find receive session callbacks for "${key}" and socket ${socketId}`);
+    this.logger.warn(`Unable to find receive session callbacks for "${key}" and server ${serverId}, socket ${socketId}`);
   }
 
   handlePublisherMessage(key:string, socketId:number, message:any) {
     for (const peerId of this.receiverServers.servers(key, socketId)) {
       if (this.id === peerId) {
-        this.handlePublisherPeerMessage(key, socketId, message);
+        this.handlePublisherPeerMessage(key, this.id, socketId, message);
         return;
       }
-      this.sendToPeer(peerId, new PublisherPeerMessage(key, socketId, message));
+      this.sendToPeer(peerId, new PublisherPeerMessage(key, this.id, socketId, message));
       return;
     }
     this.logger.warn(`Unable to find receive session callbacks for "${key}" and socket ${socketId}`);
   }
 
-  handlePublisherPeerMessage(key:string, socketId:number, message:any) {
-    const regexStrings = this.receiverSessions.regexes(key, socketId);
+  handlePublisherPeerMessage(key:string, serverId:number, socketId:number, message:any) {
+    const regexStrings = this.receiverSessions.regexes(key, serverId, socketId);
     for (const regexString of regexStrings) {
       const callbacks = this.receiveCallbacks.get(regexString);
       if (!callbacks) {
@@ -1674,7 +1680,7 @@ class Server extends EventEmitter {
       }
       const messageCallback = callbacks[0];
       if (typeof messageCallback === 'function') {
-        messageCallback(key, socketId, message);
+        messageCallback(key, serverId, socketId, message);
         return;
       }
     }
@@ -1686,7 +1692,7 @@ class Server extends EventEmitter {
    * @param {(key:string, active:boolean) => void} callback Callback function, called when a receiver should start or stop receiving values
    * @return {void}
    */
-  receive(regexString:string, messageCallback?: (key:string, socketId: number, message: any,) => void|Promise<void>, openCallback?: (key:string, socketId: number, credentials:Object) => void|Promise<void>, closeCallback?: (key:string, socketId: number) => void|Promise<void>) {
+  receive(regexString:string, messageCallback?: (key:string, serverId:number, socketId: number, message: any,) => void|Promise<void>, openCallback?: (key:string, serverId:number, socketId: number, credentials:Object) => void|Promise<void>, closeCallback?: (key:string, serverId:number, socketId: number) => void|Promise<void>) {
     const regexStrings = new Set(this.receivers.get(this.id));
     regexStrings.add(regexString);
     this.receiveCallbacks.set(regexString, [messageCallback, openCallback, closeCallback]);
@@ -1700,8 +1706,10 @@ class Server extends EventEmitter {
    * @return {void}
    */
   unreceive(regexString:string) {
-    for (const [key, socketId] of this.receiverSessions.publishers(regexString)) {
-      this.handlePublisherClose(key, socketId);
+    for (const [key, serverId, socketId] of this.receiverSessions.publishers(regexString)) {
+      if (this.id === serverId) {
+        this.handlePublisherClose(key, this.id, socketId);
+      }
     }
     const regexStrings = new Set(this.receivers.get(this.id));
     regexStrings.delete(regexString);
@@ -1794,7 +1802,7 @@ class Server extends EventEmitter {
       this.assignReceiver(key, socketId);
     }
     for (const [key, socketId] of this.publisherServers.publishers(peerId)) {
-      this.handlePublisherClose(key, socketId);
+      this.handlePublisherClose(key, peerId, socketId);
     }
     this.publisherServers.removeServer(peerId);
   }
@@ -1863,7 +1871,7 @@ class Server extends EventEmitter {
     }
     this.receiverServers.removeServer(this.id);
     for (const [key, socketId] of this.publisherServers.publishers(this.id)) {
-      this.handlePublisherClose(key, socketId);
+      this.handlePublisherClose(key, this.id, socketId);
     }
     this.publisherServers.removeServer(this.id);
     this.receiveCallbacks.clear();
@@ -2498,7 +2506,7 @@ class Server extends EventEmitter {
   declare provideDebounceTimeouts:Map<string, TimeoutID>;
   declare activeProviders:ObservedRemoveMap<string, [number, string]>;
   declare receivers:ObservedRemoveMap<number, Array<string>>;
-  declare receiveCallbacks:Map<string, [((string, number, any) => void|Promise<void>) | void, ((string, number, Object) => void|Promise<void>) | void, ((string, number) => void|Promise<void>) | void]>;
+  declare receiveCallbacks:Map<string, [((string, number, number, any) => void|Promise<void>) | void, ((string, number, number, Object) => void|Promise<void>) | void, ((string, number, number) => void|Promise<void>) | void]>;
   declare receiverSessions: PublisherSessionManager;
   declare publisherSessions: PublisherSessionManager;
   declare publisherServers: PublisherServerManager;

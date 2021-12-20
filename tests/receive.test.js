@@ -10,7 +10,7 @@ require('./lib/map-utils');
 
 
 const startPort = 20000 + Math.round(Math.random() * 10000);
-const count = 10;
+const count = 3;
 
 jest.setTimeout(20000);
 
@@ -121,12 +121,13 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForMessage();
     expect(handleMessage.mock.calls.length).toEqual(2);
     expect(handleMessage.mock.calls[0][0]).toEqual(key);
-    expect(handleMessage.mock.calls[0][2]).toEqual(messageA);
+    expect(handleMessage.mock.calls[0][3]).toEqual(messageA);
     expect(handleMessage.mock.calls[1][0]).toEqual(key);
-    expect(handleMessage.mock.calls[1][2]).toEqual(messageB);
+    expect(handleMessage.mock.calls[1][3]).toEqual(messageB);
     await clientA.stopPublishing(key);
     await clientA.close();
     serverA.unreceive(key);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   });
 
 
@@ -144,8 +145,9 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForOpen();
     expect(handleOpen.mock.calls.length).toEqual(1);
     expect(handleOpen.mock.calls[0][0]).toEqual(key);
-    expect(handleOpen.mock.calls[0][1]).toEqual(expect.any(Number));
-    expect(handleOpen.mock.calls[0][2]).toEqual(expect.objectContaining({
+    expect(handleOpen.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleOpen.mock.calls[0][2]).toEqual(expect.any(Number));
+    expect(handleOpen.mock.calls[0][3]).toEqual(expect.objectContaining({
       client: {},
       ip: expect.any(String),
     }));
@@ -153,13 +155,15 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForMessage();
     expect(handleMessage.mock.calls.length).toEqual(1);
     expect(handleMessage.mock.calls[0][0]).toEqual(key);
-    expect(handleMessage.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
-    expect(handleMessage.mock.calls[0][2]).toEqual(message);
+    expect(handleMessage.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleMessage.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
+    expect(handleMessage.mock.calls[0][3]).toEqual(message);
     await clientA.stopPublishing(key);
     await waitForClose();
     expect(handleClose.mock.calls.length).toEqual(1);
     expect(handleClose.mock.calls[0][0]).toEqual(key);
-    expect(handleClose.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
+    expect(handleClose.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleClose.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
     await clientA.close();
     serverA.unreceive(key);
   });
@@ -178,8 +182,9 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForOpen();
     expect(handleOpen.mock.calls.length).toEqual(1);
     expect(handleOpen.mock.calls[0][0]).toEqual(key);
-    expect(handleOpen.mock.calls[0][1]).toEqual(expect.any(Number));
-    expect(handleOpen.mock.calls[0][2]).toEqual(expect.objectContaining({
+    expect(handleOpen.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleOpen.mock.calls[0][2]).toEqual(expect.any(Number));
+    expect(handleOpen.mock.calls[0][3]).toEqual(expect.objectContaining({
       client: {},
       ip: expect.any(String),
     }));
@@ -187,13 +192,15 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForMessage();
     expect(handleMessage.mock.calls.length).toEqual(1);
     expect(handleMessage.mock.calls[0][0]).toEqual(key);
-    expect(handleMessage.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
-    expect(handleMessage.mock.calls[0][2]).toEqual(message);
+    expect(handleMessage.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleMessage.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
+    expect(handleMessage.mock.calls[0][3]).toEqual(message);
     await clientA.close();
     await waitForClose();
     expect(handleClose.mock.calls.length).toEqual(1);
     expect(handleClose.mock.calls[0][0]).toEqual(key);
-    expect(handleClose.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
+    expect(handleClose.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleClose.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
     serverA.unreceive(key);
   });
 
@@ -201,7 +208,7 @@ describe(`${count} peers in a ring with a receiver`, () => {
     const key = uuid.v4();
     const message = uuid.v4();
     const { server: serverA } = peers[0];
-    const { port } = peers[1];
+    const { server: serverB, port } = peers[1];
     const clientA = new Client();
     await clientA.open(`ws://localhost:${port}`, {});
     const [handleMessage, waitForMessage] = jestMockAndPromise();
@@ -212,8 +219,9 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForOpen();
     expect(handleOpen.mock.calls.length).toEqual(1);
     expect(handleOpen.mock.calls[0][0]).toEqual(key);
-    expect(handleOpen.mock.calls[0][1]).toEqual(expect.any(Number));
-    expect(handleOpen.mock.calls[0][2]).toEqual(expect.objectContaining({
+    expect(handleOpen.mock.calls[0][1]).toEqual(serverB.id);
+    expect(handleOpen.mock.calls[0][2]).toEqual(expect.any(Number));
+    expect(handleOpen.mock.calls[0][3]).toEqual(expect.objectContaining({
       client: {},
       ip: expect.any(String),
     }));
@@ -221,13 +229,15 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForMessage();
     expect(handleMessage.mock.calls.length).toEqual(1);
     expect(handleMessage.mock.calls[0][0]).toEqual(key);
-    expect(handleMessage.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
-    expect(handleMessage.mock.calls[0][2]).toEqual(message);
+    expect(handleMessage.mock.calls[0][1]).toEqual(serverB.id);
+    expect(handleMessage.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
+    expect(handleMessage.mock.calls[0][3]).toEqual(message);
     await clientA.stopPublishing(key);
     await waitForClose();
     expect(handleClose.mock.calls.length).toEqual(1);
     expect(handleClose.mock.calls[0][0]).toEqual(key);
-    expect(handleClose.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
+    expect(handleClose.mock.calls[0][1]).toEqual(serverB.id);
+    expect(handleClose.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
     await clientA.close();
     serverA.unreceive(key);
   });
@@ -236,7 +246,7 @@ describe(`${count} peers in a ring with a receiver`, () => {
     const key = uuid.v4();
     const message = uuid.v4();
     const { server: serverA } = peers[0];
-    const { port } = peers[1];
+    const { server: serverB, port } = peers[1];
     const clientA = new Client();
     await clientA.open(`ws://localhost:${port}`, {});
     const [handleMessage, waitForMessage] = jestMockAndPromise();
@@ -247,8 +257,9 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForOpen();
     expect(handleOpen.mock.calls.length).toEqual(1);
     expect(handleOpen.mock.calls[0][0]).toEqual(key);
-    expect(handleOpen.mock.calls[0][1]).toEqual(expect.any(Number));
-    expect(handleOpen.mock.calls[0][2]).toEqual(expect.objectContaining({
+    expect(handleOpen.mock.calls[0][1]).toEqual(serverB.id);
+    expect(handleOpen.mock.calls[0][2]).toEqual(expect.any(Number));
+    expect(handleOpen.mock.calls[0][3]).toEqual(expect.objectContaining({
       client: {},
       ip: expect.any(String),
     }));
@@ -256,13 +267,15 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForMessage();
     expect(handleMessage.mock.calls.length).toEqual(1);
     expect(handleMessage.mock.calls[0][0]).toEqual(key);
-    expect(handleMessage.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
-    expect(handleMessage.mock.calls[0][2]).toEqual(message);
+    expect(handleMessage.mock.calls[0][1]).toEqual(serverB.id);
+    expect(handleMessage.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
+    expect(handleMessage.mock.calls[0][3]).toEqual(message);
     await clientA.close();
     await waitForClose();
     expect(handleClose.mock.calls.length).toEqual(1);
     expect(handleClose.mock.calls[0][0]).toEqual(key);
-    expect(handleClose.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
+    expect(handleClose.mock.calls[0][1]).toEqual(serverB.id);
+    expect(handleClose.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
     serverA.unreceive(key);
   });
 
@@ -278,7 +291,6 @@ describe(`${count} peers in a ring with a receiver`, () => {
     const stop = ws[1];
     const clientA = new Client();
     await clientA.open(`ws://localhost:${port}`, {});
-
     const key = uuid.v4();
     const message = uuid.v4();
     const [serverA] = getRandomServers(1);
@@ -290,8 +302,9 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForOpen();
     expect(handleOpen.mock.calls.length).toEqual(1);
     expect(handleOpen.mock.calls[0][0]).toEqual(key);
-    expect(handleOpen.mock.calls[0][1]).toEqual(expect.any(Number));
-    expect(handleOpen.mock.calls[0][2]).toEqual(expect.objectContaining({
+    expect(handleOpen.mock.calls[0][1]).toEqual(server.id);
+    expect(handleOpen.mock.calls[0][2]).toEqual(expect.any(Number));
+    expect(handleOpen.mock.calls[0][3]).toEqual(expect.objectContaining({
       client: {},
       ip: expect.any(String),
     }));
@@ -299,14 +312,16 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForMessage();
     expect(handleMessage.mock.calls.length).toEqual(1);
     expect(handleMessage.mock.calls[0][0]).toEqual(key);
-    expect(handleMessage.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
-    expect(handleMessage.mock.calls[0][2]).toEqual(message);
+    expect(handleMessage.mock.calls[0][1]).toEqual(server.id);
+    expect(handleMessage.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
+    expect(handleMessage.mock.calls[0][3]).toEqual(message);
     await clientA.close();
     await server.close();
     await waitForClose();
     expect(handleClose.mock.calls.length).toEqual(1);
     expect(handleClose.mock.calls[0][0]).toEqual(key);
-    expect(handleClose.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
+    expect(handleClose.mock.calls[0][1]).toEqual(server.id);
+    expect(handleClose.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
     await stop();
     serverA.unreceive(key);
     server.throwOnLeakedReferences();
@@ -323,7 +338,7 @@ describe(`${count} peers in a ring with a receiver`, () => {
     const [handleOpen, waitForOpen] = jestMockAndPromise();
     const [handleClose, waitForClose] = jestMockAndPromise();
     server.receive(key, handleMessage, handleOpen, handleClose);
-    const { port: portA } = peers[0];
+    const { server: serverA, port: portA } = peers[0];
     const clientA = new Client();
     await clientA.open(`ws://localhost:${portA}`, {});
     await clientA.startPublishing(key);
@@ -335,8 +350,9 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForOpen();
     expect(handleOpen.mock.calls.length).toEqual(1);
     expect(handleOpen.mock.calls[0][0]).toEqual(key);
-    expect(handleOpen.mock.calls[0][1]).toEqual(expect.any(Number));
-    expect(handleOpen.mock.calls[0][2]).toEqual(expect.objectContaining({
+    expect(handleOpen.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleOpen.mock.calls[0][2]).toEqual(expect.any(Number));
+    expect(handleOpen.mock.calls[0][3]).toEqual(expect.objectContaining({
       client: {},
       ip: expect.any(String),
     }));
@@ -344,13 +360,15 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForMessage();
     expect(handleMessage.mock.calls.length).toEqual(1);
     expect(handleMessage.mock.calls[0][0]).toEqual(key);
-    expect(handleMessage.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
-    expect(handleMessage.mock.calls[0][2]).toEqual(message);
+    expect(handleMessage.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleMessage.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
+    expect(handleMessage.mock.calls[0][3]).toEqual(message);
     await clientA.stopPublishing(key);
     await waitForClose();
     expect(handleClose.mock.calls.length).toEqual(1);
     expect(handleClose.mock.calls[0][0]).toEqual(key);
-    expect(handleClose.mock.calls[0][1]).toEqual(handleOpen.mock.calls[0][1]);
+    expect(handleClose.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleClose.mock.calls[0][2]).toEqual(handleOpen.mock.calls[0][2]);
     await clientA.close();
     await server.close();
     await stop();
@@ -380,8 +398,9 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForOpenA();
     expect(handleOpenA.mock.calls.length).toEqual(1);
     expect(handleOpenA.mock.calls[0][0]).toEqual(key);
-    expect(handleOpenA.mock.calls[0][1]).toEqual(expect.any(Number));
-    expect(handleOpenA.mock.calls[0][2]).toEqual(expect.objectContaining({
+    expect(handleOpenA.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleOpenA.mock.calls[0][2]).toEqual(expect.any(Number));
+    expect(handleOpenA.mock.calls[0][3]).toEqual(expect.objectContaining({
       client: {},
       ip: expect.any(String),
     }));
@@ -389,18 +408,21 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForMessageA();
     expect(handleMessageA.mock.calls.length).toEqual(1);
     expect(handleMessageA.mock.calls[0][0]).toEqual(key);
-    expect(handleMessageA.mock.calls[0][1]).toEqual(handleOpenA.mock.calls[0][1]);
-    expect(handleMessageA.mock.calls[0][2]).toEqual(message);
+    expect(handleMessageA.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleMessageA.mock.calls[0][2]).toEqual(handleOpenA.mock.calls[0][2]);
+    expect(handleMessageA.mock.calls[0][3]).toEqual(message);
     serverA.unreceive(key);
     await waitForCloseA();
     expect(handleCloseA.mock.calls.length).toEqual(1);
     expect(handleCloseA.mock.calls[0][0]).toEqual(key);
-    expect(handleCloseA.mock.calls[0][1]).toEqual(handleOpenA.mock.calls[0][1]);
+    expect(handleCloseA.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleCloseA.mock.calls[0][2]).toEqual(handleOpenA.mock.calls[0][2]);
     await waitForOpenB();
     expect(handleOpenB.mock.calls.length).toEqual(1);
     expect(handleOpenB.mock.calls[0][0]).toEqual(key);
-    expect(handleOpenB.mock.calls[0][1]).toEqual(expect.any(Number));
-    expect(handleOpenB.mock.calls[0][2]).toEqual(expect.objectContaining({
+    expect(handleOpenB.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleOpenB.mock.calls[0][2]).toEqual(expect.any(Number));
+    expect(handleOpenB.mock.calls[0][3]).toEqual(expect.objectContaining({
       client: {},
       ip: expect.any(String),
     }));
@@ -408,13 +430,15 @@ describe(`${count} peers in a ring with a receiver`, () => {
     await waitForMessageB();
     expect(handleMessageB.mock.calls.length).toEqual(1);
     expect(handleMessageB.mock.calls[0][0]).toEqual(key);
-    expect(handleMessageB.mock.calls[0][1]).toEqual(handleOpenB.mock.calls[0][1]);
-    expect(handleMessageB.mock.calls[0][2]).toEqual(message);
+    expect(handleMessageB.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleMessageB.mock.calls[0][2]).toEqual(handleOpenB.mock.calls[0][2]);
+    expect(handleMessageB.mock.calls[0][3]).toEqual(message);
     await clientA.stopPublishing(key);
     await waitForCloseB();
     expect(handleCloseB.mock.calls.length).toEqual(1);
     expect(handleCloseB.mock.calls[0][0]).toEqual(key);
-    expect(handleCloseB.mock.calls[0][1]).toEqual(handleOpenB.mock.calls[0][1]);
+    expect(handleCloseB.mock.calls[0][1]).toEqual(serverA.id);
+    expect(handleCloseB.mock.calls[0][2]).toEqual(handleOpenB.mock.calls[0][2]);
     await clientA.close();
     serverB.unreceive(key);
   });

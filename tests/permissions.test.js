@@ -208,7 +208,7 @@ describe('Permissions', () => {
     const valueA = uuid.v4();
     const valueB = uuid.v4();
     const clientAPublishPromise = new Promise((resolve, reject) => {
-      server.receive(name, (n:string, socketId:number, message:any) => {
+      server.receive(name, (n:string, serverId:number, socketId:number, message:any) => {
         if (n !== name) {
           return;
         }
@@ -251,7 +251,7 @@ describe('Permissions', () => {
     const valueA = uuid.v4();
     const valueB = uuid.v4();
     const clientAPublishPromise = new Promise((resolve, reject) => {
-      server.receive(name, (n:string, socketId:number, message:any) => {
+      server.receive(name, (n:string, serverId:number, socketId:number, message:any) => {
         if (n !== name) {
           return;
         }
