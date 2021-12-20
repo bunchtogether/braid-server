@@ -471,9 +471,9 @@ Top level publisher open handler
 
 ##### Parameters
 
-*   `peerId`  
 *   `regexString`  
 *   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key the socket is publishing to
+*   `serverId`  
 *   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the peer
 *   `credentials` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Credentials object
 
@@ -486,6 +486,7 @@ Top level publisher close handler
 ##### Parameters
 
 *   `key` **[string](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** Key the socket is publishing to
+*   `serverId`  
 *   `socketId` **[number](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number)** Socket ID of the peer
 
 Returns **void** 
