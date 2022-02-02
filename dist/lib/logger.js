@@ -15,8 +15,9 @@ console._stdout = process.stdout; // eslint-disable-line no-underscore-dangle,no
 console._stderr = process.stderr; // eslint-disable-line no-underscore-dangle,no-console
 
 module.exports = (name        ) => {
-  if (loggers[name]) {
-    return loggers[name];
+  const cached = loggers[name];
+  if (cached) {
+    return cached;
   }
   colorize.Colorizer.addColors({
     error: 'red',

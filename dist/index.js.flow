@@ -57,10 +57,10 @@ const {
 } = require('@bunchtogether/braid-messagepack');
 
 type Logger = {
-  debug: (string) => void,
-  info: (string) => void,
-  warn: (string) => void,
-  error: (string) => void
+  debug: (string) => *,
+  info: (string) => *,
+  warn: (string) => *,
+  error: (string) => *
 };
 
 function randomInteger() {

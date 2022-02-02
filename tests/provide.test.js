@@ -57,8 +57,13 @@ describe(`${count} peers in a ring with a provider`, () => {
     for (const { server } of peers) {
       await expect(server.providers).toReceiveProperty(serverA.id, [key]);
     }
-    const [[regexStringA, regexA]] = serverA.providerRegexes.get(serverA.id);
-    const [[regexStringB, regexB]] = serverB.providerRegexes.get(serverA.id);
+    const providerRegexPairA = serverA.providerRegexes.get(serverA.id);
+    const providerRegexPairB = serverB.providerRegexes.get(serverA.id);
+    if (!providerRegexPairA || !providerRegexPairB) {
+      throw new Error('Provider regexes do not exist');
+    }
+    const [[regexStringA, regexA]] = providerRegexPairA;
+    const [[regexStringB, regexB]] = providerRegexPairB;
     expect(regexStringA).toEqual(key);
     expect(regexStringB).toEqual(key);
     expect(regexA).toBeInstanceOf(RegExp);

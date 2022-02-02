@@ -90,10 +90,16 @@ describe(`${count} peers in a ring with a receiver`, () => {
     for (const { server } of peers) {
       await expect(server.receivers).toReceiveProperty(serverA.id, [key]);
     }
-    const [[regexStringA, regexA]] = serverA.receiverRegexes.get(serverA.id);
-    const [[regexStringB, regexB]] = serverB.receiverRegexes.get(serverA.id);
-    expect(regexStringA).toEqual(key);
-    expect(regexStringB).toEqual(key);
+    const regexMapA = serverA.receiverRegexes.get(serverA.id);
+    const regexMapB = serverB.receiverRegexes.get(serverA.id);
+    if (!regexMapA || !regexMapB) {
+      throw new Error('Receiver regexes do not exist');
+    }
+    const regexA = regexMapA.get(key);
+    const regexB = regexMapB.get(key);
+    if (!regexA || !regexB) {
+      throw new Error('Receiver regexes do not exist');
+    }
     expect(regexA).toBeInstanceOf(RegExp);
     expect(regexB).toBeInstanceOf(RegExp);
     expect(regexA.test(key)).toEqual(true);

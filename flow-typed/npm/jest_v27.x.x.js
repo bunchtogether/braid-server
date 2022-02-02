@@ -1,5 +1,5 @@
-// flow-typed signature: 5ddcf688200e3506308fdcfa78ca48d9
-// flow-typed version: 644a595e77/jest_v27.x.x/flow_>=v0.134.x
+// flow-typed signature: b87087aa1a754cdc00c0adcb865b9fd4
+// flow-typed version: 9bbc41691b/jest_v27.x.x/flow_>=v0.104.x <=v0.133.x
 
 type JestMockFn<TArguments: $ReadOnlyArray<*>, TReturn> = {
   (...args: TArguments): TReturn,
@@ -834,14 +834,10 @@ type JestObjectType = {
    */
   isMockFunction(fn: Function): boolean,
   /**
-   * Alias of `createMockFromModule`.
-   */
-  genMockFromModule(moduleName: string): any,
-  /**
    * Given the name of a module, use the automatic mocking system to generate a
    * mocked version of the module for you.
    */
-  createMockFromModule(moduleName: string): any,
+  genMockFromModule(moduleName: string): any,
   /**
    * Mocks a module with an auto-mocked version when it is being required.
    *
@@ -1040,20 +1036,11 @@ declare var it: {
    * @param {Function} Test
    * @param {number} Timeout for the test, in milliseconds.
    */
-  skip: {|
-    (
-      name: JestTestName,
-      fn?: (done: JestDoneFn) => ?Promise<mixed>,
-      timeout?: number
-    ): void,
-    each(
-      ...table: Array<Array<mixed> | mixed> | [Array<string>, string]
-    ): (
-      name: JestTestName,
-      fn?: (...args: Array<any>) => ?Promise<mixed>,
-      timeout?: number
-    ) => void,
-  |},
+  skip(
+    name: JestTestName,
+    fn?: (done: JestDoneFn) => ?Promise<mixed>,
+    timeout?: number
+  ): void,
   /**
    * Highlight planned tests in the summary output
    *
