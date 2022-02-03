@@ -97,7 +97,9 @@ export default class PeerConnection extends EventEmitter {
   }
 
   async close(code, reason) {
-    if (!this.ws) {
+    const ws = this.ws;
+
+    if (!ws) {
       throw new Error('Unable to close, socket does not exist');
     }
 
@@ -114,12 +116,14 @@ export default class PeerConnection extends EventEmitter {
 
       this.once('error', onError);
       this.once('close', onClose);
-      this.ws.close(code, reason);
+      ws.close(code, reason);
     });
   }
 
   async sendCredentials(credentials) {
-    if (!this.ws) {
+    const ws = this.ws;
+
+    if (!ws) {
       throw new Error('Unable to send credentials, not open');
     }
 
@@ -149,12 +153,14 @@ export default class PeerConnection extends EventEmitter {
       }, this.timeoutDuration);
       this.on('close', handleClose);
       this.on('credentialsResponse', handleCredentialsResponse);
-      this.ws.send(encode(new Credentials(credentials)));
+      ws.send(encode(new Credentials(credentials)));
     });
   }
 
   sendPeerRequest() {
-    if (!this.ws) {
+    const ws = this.ws;
+
+    if (!ws) {
       throw new Error('Unable to peer, not open');
     }
 
@@ -184,16 +190,18 @@ export default class PeerConnection extends EventEmitter {
       }, this.timeoutDuration);
       this.on('close', handleClose);
       this.on('peerResponse', handlePeerResponse);
-      this.ws.send(encode(new PeerRequest(this.id)));
+      ws.send(encode(new PeerRequest(this.id)));
     });
   }
 
   unpeer() {
-    if (!this.ws) {
+    const ws = this.ws;
+
+    if (!ws) {
       throw new Error('Unable to unpeer, not open');
     }
 
-    this.ws.send(encode(new Unpeer()));
+    ws.send(encode(new Unpeer()));
   }
 
 }

@@ -110,7 +110,8 @@ export default class PeerConnection extends EventEmitter {
   }
 
   async close(code?: number, reason?: string) {
-    if (!this.ws) {
+    const ws = this.ws;
+    if (!ws) {
       throw new Error('Unable to close, socket does not exist');
     }
     await new Promise((resolve, reject) => {
@@ -124,12 +125,13 @@ export default class PeerConnection extends EventEmitter {
       };
       this.once('error', onError);
       this.once('close', onClose);
-      this.ws.close(code, reason);
+      ws.close(code, reason);
     });
   }
 
   async sendCredentials(credentials: Object) {
-    if (!this.ws) {
+    const ws = this.ws;
+    if (!ws) {
       throw new Error('Unable to send credentials, not open');
     }
     await new Promise((resolve, reject) => {
@@ -155,12 +157,13 @@ export default class PeerConnection extends EventEmitter {
       }, this.timeoutDuration);
       this.on('close', handleClose);
       this.on('credentialsResponse', handleCredentialsResponse);
-      this.ws.send(encode(new Credentials(credentials)));
+      ws.send(encode(new Credentials(credentials)));
     });
   }
 
   sendPeerRequest():Promise<number> {
-    if (!this.ws) {
+    const ws = this.ws;
+    if (!ws) {
       throw new Error('Unable to peer, not open');
     }
     return new Promise((resolve, reject) => {
@@ -186,22 +189,23 @@ export default class PeerConnection extends EventEmitter {
       }, this.timeoutDuration);
       this.on('close', handleClose);
       this.on('peerResponse', handlePeerResponse);
-      this.ws.send(encode(new PeerRequest(this.id)));
+      ws.send(encode(new PeerRequest(this.id)));
     });
   }
 
   unpeer() {
-    if (!this.ws) {
+    const ws = this.ws;
+    if (!ws) {
       throw new Error('Unable to unpeer, not open');
     }
-    this.ws.send(encode(new Unpeer()));
+    ws.send(encode(new Unpeer()));
   }
 
   declare id:number;
   declare address:string;
   declare maxPayloadLength: number;
   declare credentials: Object;
-  declare ws: WS;
+  declare ws: void | WS;
   declare timeoutDuration: number;
 }
 

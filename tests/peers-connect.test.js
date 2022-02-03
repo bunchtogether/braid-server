@@ -97,7 +97,7 @@ describe('Peer Connect', () => {
         const server = items[indexToDisconnectFromPeers][0];
         for (const peerConnection of server.peerConnections.values()) {
           const ws = peerConnection.ws;
-          if (ws.readyState !== 1) {
+          if (!ws || ws.readyState !== 1) {
             continue;
           }
           ws.terminate();

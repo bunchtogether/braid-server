@@ -950,7 +950,7 @@ class Server extends EventEmitter {
         continue;
       }
 
-      if (ws.readyState === 1) {
+      if (ws && ws.readyState === 1) {
         peerIds.push(peerId);
         peerConnections.push(ws);
       }
@@ -986,7 +986,11 @@ class Server extends EventEmitter {
       const {
         ws
       } = peerConnection;
-      ws.send(encoded);
+
+      if (ws) {
+        ws.send(encoded);
+      }
+
       return;
     }
 
@@ -2483,12 +2487,21 @@ class Server extends EventEmitter {
     this.logger.info(`Sending peer sync response to peer ${peerSync.id}`);
 
     if (peerConnection) {
-      if (peerConnection.ws.readyState !== 1) {
-        this.logger.error(`Unable to handle sync from peer ${peerSync.id}, connection is in ready state is ${peerConnection.ws.readyState}`);
+      const {
+        ws
+      } = peerConnection;
+
+      if (!ws) {
+        this.logger.error(`Unable to handle sync from peer ${peerSync.id}, connection does not exist`);
         return;
       }
 
-      peerConnection.ws.send(this.encode(new PeerSyncResponse(this.id)));
+      if (ws.readyState !== 1) {
+        this.logger.error(`Unable to handle sync from peer ${peerSync.id}, connection is in ready state is ${ws.readyState}`);
+        return;
+      }
+
+      ws.send(this.encode(new PeerSyncResponse(this.id)));
       return;
     }
 
@@ -2518,8 +2531,17 @@ class Server extends EventEmitter {
       return;
     }
 
-    if (peerConnection.ws.readyState !== 1) {
-      this.logger.error(`Unable to sync peer ${peerId}, readystate ${peerConnection.ws.readyState}`);
+    const {
+      ws
+    } = peerConnection;
+
+    if (!ws) {
+      this.logger.error(`Unable to sync peer ${peerId}, connection is not open`);
+      return;
+    }
+
+    if (ws.readyState !== 1) {
+      this.logger.error(`Unable to sync peer ${peerId}, readystate ${ws.readyState}`);
       return;
     }
 
@@ -2787,19 +2809,28 @@ class Server extends EventEmitter {
       return false;
     }
 
+    const {
+      ws
+    } = peerConnection;
+
+    if (!ws) {
+      this.logger.error(`Unable to send message to peer ${peerId}, connection is not open`);
+      return false;
+    }
+
     if (message.length > this.maxPayloadLength) {
       const chunkSize = Math.round(this.maxPayloadLength / 2);
       const chunks = MultipartContainer.chunk(message, chunkSize);
       this.logger.info(`Sending ${message.length} byte message to peer ${peerId} connection in ${chunks.length} chunks`);
 
       for (const chunk of chunks) {
-        if (peerConnection.ws.readyState !== 1) {
-          this.logger.error(`Unable to send message to peer ${peerId}, ready state is ${peerConnection.ws.readyState}`);
+        if (ws.readyState !== 1) {
+          this.logger.error(`Unable to send message to peer ${peerId}, ready state is ${ws.readyState}`);
           return false;
         }
 
         await new Promise((resolve, reject) => {
-          peerConnection.ws.send(chunk, error => {
+          ws.send(chunk, error => {
             if (error) {
               reject(error);
             } else {
@@ -2810,13 +2841,13 @@ class Server extends EventEmitter {
       }
 
       return true;
-    } else if (peerConnection.ws.readyState !== 1) {
-      this.logger.error(`Unable to send message to peer ${peerId}, ready state is ${peerConnection.ws.readyState}`);
+    } else if (ws.readyState !== 1) {
+      this.logger.error(`Unable to send message to peer ${peerId}, ready state is ${ws.readyState}`);
       return false;
     }
 
     await new Promise((resolve, reject) => {
-      peerConnection.ws.send(message, error => {
+      ws.send(message, error => {
         if (error) {
           reject(error);
         } else {

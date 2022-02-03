@@ -108,7 +108,9 @@ class PeerConnection extends _events.default {
   }
 
   async close(code, reason) {
-    if (!this.ws) {
+    const ws = this.ws;
+
+    if (!ws) {
       throw new Error('Unable to close, socket does not exist');
     }
 
@@ -125,12 +127,14 @@ class PeerConnection extends _events.default {
 
       this.once('error', onError);
       this.once('close', onClose);
-      this.ws.close(code, reason);
+      ws.close(code, reason);
     });
   }
 
   async sendCredentials(credentials) {
-    if (!this.ws) {
+    const ws = this.ws;
+
+    if (!ws) {
       throw new Error('Unable to send credentials, not open');
     }
 
@@ -160,12 +164,14 @@ class PeerConnection extends _events.default {
       }, this.timeoutDuration);
       this.on('close', handleClose);
       this.on('credentialsResponse', handleCredentialsResponse);
-      this.ws.send((0, _braidMessagepack.encode)(new _braidMessagepack.Credentials(credentials)));
+      ws.send((0, _braidMessagepack.encode)(new _braidMessagepack.Credentials(credentials)));
     });
   }
 
   sendPeerRequest() {
-    if (!this.ws) {
+    const ws = this.ws;
+
+    if (!ws) {
       throw new Error('Unable to peer, not open');
     }
 
@@ -195,16 +201,18 @@ class PeerConnection extends _events.default {
       }, this.timeoutDuration);
       this.on('close', handleClose);
       this.on('peerResponse', handlePeerResponse);
-      this.ws.send((0, _braidMessagepack.encode)(new _braidMessagepack.PeerRequest(this.id)));
+      ws.send((0, _braidMessagepack.encode)(new _braidMessagepack.PeerRequest(this.id)));
     });
   }
 
   unpeer() {
-    if (!this.ws) {
+    const ws = this.ws;
+
+    if (!ws) {
       throw new Error('Unable to unpeer, not open');
     }
 
-    this.ws.send((0, _braidMessagepack.encode)(new _braidMessagepack.Unpeer()));
+    ws.send((0, _braidMessagepack.encode)(new _braidMessagepack.Unpeer()));
   }
 
 }
