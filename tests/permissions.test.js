@@ -1,11 +1,12 @@
 // @flow
 
-const uuid = require('uuid');
-const expect = require('expect');
-const { default: Client } = require('@bunchtogether/braid-client');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import expect from 'expect';
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 const port = 10000 + Math.round(Math.random() * 10000);
 
@@ -29,7 +30,7 @@ describe('Permissions', () => {
 
   test('Should handle failing subscription requests made before the connection is opened', async () => {
     const client = new Client();
-    const key = uuid.v4();
+    const key = uuidv4();
     server.provide('.*', (k, active) => {
       if (active) {
         server.set(k, true);
@@ -54,9 +55,9 @@ describe('Permissions', () => {
   test('Should handle subscription requests made before the connection is opened', async () => {
     const clientA = new Client();
     const clientB = new Client();
-    const clientIdA = uuid.v4();
-    const clientIdB = uuid.v4();
-    const key = uuid.v4();
+    const clientIdA = uuidv4();
+    const clientIdB = uuidv4();
+    const key = uuidv4();
     server.provide('.*', (k, active) => {
       if (active) {
         server.set(k, true);
@@ -91,9 +92,9 @@ describe('Permissions', () => {
   test('Should handle subscription requests made after the connection is opened', async () => {
     const clientA = new Client();
     const clientB = new Client();
-    const clientIdA = uuid.v4();
-    const clientIdB = uuid.v4();
-    const key = uuid.v4();
+    const clientIdA = uuidv4();
+    const clientIdB = uuidv4();
+    const key = uuidv4();
     server.provide('.*', (k, active) => {
       if (active) {
         server.set(k, true);
@@ -126,9 +127,9 @@ describe('Permissions', () => {
   test('Should handle event subscription requests made before the connection is opened', async () => {
     const clientA = new Client();
     const clientB = new Client();
-    const clientIdA = uuid.v4();
-    const clientIdB = uuid.v4();
-    const name = uuid.v4();
+    const clientIdA = uuidv4();
+    const clientIdB = uuidv4();
+    const name = uuidv4();
     let clientAReceivedEvent = false;
     let clientBReceivedEvent = false;
     const callbackA = () => {
@@ -164,9 +165,9 @@ describe('Permissions', () => {
   test('Should handle event subscription requests made after the connection is opened', async () => {
     const clientA = new Client();
     const clientB = new Client();
-    const clientIdA = uuid.v4();
-    const clientIdB = uuid.v4();
-    const name = uuid.v4();
+    const clientIdA = uuidv4();
+    const clientIdB = uuidv4();
+    const name = uuidv4();
     let clientAReceivedEvent = false;
     let clientBReceivedEvent = false;
     const callbackA = () => {
@@ -202,11 +203,11 @@ describe('Permissions', () => {
   test('Should handle publish requests made before the connection is opened', async () => {
     const clientA = new Client();
     const clientB = new Client();
-    const clientIdA = uuid.v4();
-    const clientIdB = uuid.v4();
-    const name = uuid.v4();
-    const valueA = uuid.v4();
-    const valueB = uuid.v4();
+    const clientIdA = uuidv4();
+    const clientIdB = uuidv4();
+    const name = uuidv4();
+    const valueA = uuidv4();
+    const valueB = uuidv4();
     const clientAPublishPromise = new Promise((resolve, reject) => {
       server.receive(name, (n:string, serverId:number, socketId:number, message:any) => {
         if (n !== name) {
@@ -245,11 +246,11 @@ describe('Permissions', () => {
   test('Should handle publish requests made after the connection is opened', async () => {
     const clientA = new Client();
     const clientB = new Client();
-    const clientIdA = uuid.v4();
-    const clientIdB = uuid.v4();
-    const name = uuid.v4();
-    const valueA = uuid.v4();
-    const valueB = uuid.v4();
+    const clientIdA = uuidv4();
+    const clientIdB = uuidv4();
+    const name = uuidv4();
+    const valueA = uuidv4();
+    const valueB = uuidv4();
     const clientAPublishPromise = new Promise((resolve, reject) => {
       server.receive(name, (n:string, serverId:number, socketId:number, message:any) => {
         if (n !== name) {

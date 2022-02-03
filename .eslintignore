@@ -44,6 +44,7 @@ flow
 **/dist.js
 **/dist
 **/vendor
+scripts
 README.md
 tests/benchmark.js
 src/uWebSockets.js

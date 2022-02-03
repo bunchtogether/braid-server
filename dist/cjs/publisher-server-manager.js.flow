@@ -1,9 +1,9 @@
-//      
+// @flow
 
-const DirectedGraphMap = require('directed-graph-map');
+import DirectedGraphMap from 'directed-graph-map';
 
 class PublisherServerManager {
-                                                
+  declare map: DirectedGraphMap<string, number>;
 
   constructor() {
     this.map = new DirectedGraphMap();
@@ -13,26 +13,26 @@ class PublisherServerManager {
     return this.map.size;
   }
 
-  add(key       , socketId       , serverId       ) {
+  add(key:string, socketId:number, serverId:number) {
     const sessionKey = `${key}:${socketId}`;
     this.map.addEdge(sessionKey, serverId);
   }
 
-  removePublisher(key       , socketId       ) {
+  removePublisher(key:string, socketId:number) {
     const sessionKey = `${key}:${socketId}`;
     this.map.removeSource(sessionKey);
   }
 
-  removeServer(serverId       ) {
+  removeServer(serverId:number) {
     this.map.removeTarget(serverId);
   }
 
-  hasPublisher(key       , socketId       ) {
+  hasPublisher(key:string, socketId:number) {
     const sessionKey = `${key}:${socketId}`;
     return this.map.hasSource(sessionKey);
   }
 
-  publishers(serverId       )                         {
+  publishers(serverId:number):Array<[string, number]> {
     const results = [];
     const sessionKeys = this.map.getSources(serverId);
     for (const sessionKey of sessionKeys) {
@@ -43,10 +43,10 @@ class PublisherServerManager {
     return results;
   }
 
-  servers(key       , socketId       )               {
+  servers(key:string, socketId:number):Array<number> {
     const sessionKey = `${key}:${socketId}`;
     return [...this.map.getTargets(sessionKey)];
   }
 }
 
-module.exports = PublisherServerManager;
+export default PublisherServerManager;

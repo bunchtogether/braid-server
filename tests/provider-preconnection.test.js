@@ -1,11 +1,12 @@
 // @flow
 
 // const expect = require('expect');
-const Server = require('../src');
-const uuid = require('uuid');
-const { default: Client } = require('@bunchtogether/braid-client');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 jest.setTimeout(30000);
 
@@ -42,7 +43,7 @@ describe('Provider Pre-Connection', () => {
   });
 
   test('Should deactivate if two providers exists', async () => {
-    const key = uuid.v4();
+    const key = uuidv4();
     const deactivatePromise = new Promise((resolve) => {
       const handleA = (k, active) => {
         if (k !== key) {

@@ -1,9 +1,10 @@
 // @flow
 
-const expect = require('expect');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import expect from 'expect';
+
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 jest.setTimeout(30000);
 

@@ -1,7 +1,8 @@
 // @flow
 
-const expect = require('expect');
-const { diff } = require('jest-diff');
+import expect from 'expect';
+
+import { diff } from 'jest-diff';
 
 expect.extend({
   async toReceiveProperty(received, key, value) {

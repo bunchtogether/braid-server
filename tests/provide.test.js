@@ -1,11 +1,12 @@
 // @flow
 
-const uuid = require('uuid');
-const { shuffle } = require('lodash');
-const { default: Client } = require('@bunchtogether/braid-client');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import { shuffle } from 'lodash';
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 const startPort = 20000 + Math.round(Math.random() * 10000);
 const count = 3;
@@ -42,8 +43,8 @@ describe(`${count} peers in a ring with a provider`, () => {
   });
 
   test('Should provide values', async () => {
-    const key = uuid.v4();
-    const value = uuid.v4();
+    const key = uuidv4();
+    const value = uuidv4();
     const [serverA, serverB] = getRandomServers(2);
     const provideStartPromise = new Promise((resolve) => {
       const handle = (k, active) => {
@@ -70,8 +71,8 @@ describe(`${count} peers in a ring with a provider`, () => {
     expect(regexB).toBeInstanceOf(RegExp);
     expect(regexA.test(key)).toEqual(true);
     expect(regexB.test(key)).toEqual(true);
-    expect(regexA.test(uuid.v4())).toEqual(false);
-    expect(regexB.test(uuid.v4())).toEqual(false);
+    expect(regexA.test(uuidv4())).toEqual(false);
+    expect(regexB.test(uuidv4())).toEqual(false);
     await client.subscribe(key);
     for (const { server } of peers) {
       await expect(server.activeProviders).toReceiveProperty(key, [serverA.id, key]);
@@ -83,9 +84,9 @@ describe(`${count} peers in a ring with a provider`, () => {
   });
 
   test('Should automatically update after a provider closes', async () => {
-    const key = uuid.v4();
-    const valueA = uuid.v4();
-    const valueB = uuid.v4();
+    const key = uuidv4();
+    const valueA = uuidv4();
+    const valueB = uuidv4();
     const serverA = peers[0].server;
     const serverB = peers[1].server;
     const providePromiseA = new Promise((resolve, reject) => {

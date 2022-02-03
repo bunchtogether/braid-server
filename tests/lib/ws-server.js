@@ -1,9 +1,12 @@
 // @flow
 
-const uWS = require('uWebSockets.js');
-const logger = require('../../src/lib/logger')('Websocket Server');
+import uWS from 'uWebSockets.js';
 
-module.exports = async function (host:string, port:number) {
+import loggerFactory from '../../src/lib/logger';
+
+const logger = loggerFactory('Websocket Server');
+
+export default async function (host:string, port:number) {
   logger.debug(`Starting listening on ws://${host}:${port}`);
   const server = uWS.App({});
   let listenSocket = await new Promise((resolve, reject) => {
@@ -26,4 +29,4 @@ module.exports = async function (host:string, port:number) {
   };
   logger.info(`Started listening on ws://${host}:${port}`);
   return [server, stopWsServer];
-};
+}

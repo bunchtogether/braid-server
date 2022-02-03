@@ -1,44 +1,53 @@
-// @flow
+"use strict";
 
-const DirectedGraphMap = require('directed-graph-map');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+
+var _directedGraphMap = _interopRequireDefault(require("directed-graph-map"));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 class PublisherSessionManager {
-  declare map: DirectedGraphMap<string, string>;
-
   constructor() {
-    this.map = new DirectedGraphMap();
+    this.map = new _directedGraphMap.default();
   }
 
   get size() {
     return this.map.size;
   }
 
-  add(key:string, serverId:number, socketId:number, regexString:string) {
+  add(key, serverId, socketId, regexString) {
     const sessionKey = `${key}:${serverId}:${socketId}`;
     this.map.addEdge(sessionKey, regexString);
   }
 
-  removePublisher(key:string, serverId:number, socketId:number) {
+  removePublisher(key, serverId, socketId) {
     const sessionKey = `${key}:${serverId}:${socketId}`;
     this.map.removeSource(sessionKey);
   }
 
-  publishers(regexString:string):Array<[string, number, number]> {
+  publishers(regexString) {
     const results = [];
     const sessionKeys = this.map.getSources(regexString);
+
     for (const sessionKey of sessionKeys) {
       const [key, serverIdString, socketIdString] = sessionKey.split(':');
       const serverId = parseInt(serverIdString, 10);
       const socketId = parseInt(socketIdString, 10);
       results.push([key, serverId, socketId]);
     }
+
     return results;
   }
 
-  regexes(key:string, serverId:number, socketId:number):Array<string> {
+  regexes(key, serverId, socketId) {
     const sessionKey = `${key}:${serverId}:${socketId}`;
     return [...this.map.getTargets(sessionKey)];
   }
+
 }
 
-module.exports = PublisherSessionManager;
+exports.default = PublisherSessionManager;
+//# sourceMappingURL=publisher-session-manager.js.map

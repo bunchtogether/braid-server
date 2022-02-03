@@ -1,12 +1,13 @@
 // @flow
 
-const uuid = require('uuid');
-const { default: PQueue } = require('p-queue');
-const { shuffle } = require('lodash');
-const { default: Client } = require('@bunchtogether/braid-client');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import { shuffle } from 'lodash';
+import PQueue from 'p-queue';
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 
 const startPort = 20000 + Math.round(Math.random() * 10000);
@@ -78,13 +79,13 @@ describe(`${count} peers in a ring with a receiver`, () => {
   });
 
   test('Should start and stop publishing', async () => {
-    const name = uuid.v4();
+    const name = uuidv4();
     await client.startPublishing(name);
     await client.stopPublishing(name);
   });
 
   test('Should receive values', async () => {
-    const key = uuid.v4();
+    const key = uuidv4();
     const [serverA, serverB] = getRandomServers(2);
     serverA.receive(key);
     for (const { server } of peers) {
@@ -104,16 +105,16 @@ describe(`${count} peers in a ring with a receiver`, () => {
     expect(regexB).toBeInstanceOf(RegExp);
     expect(regexA.test(key)).toEqual(true);
     expect(regexB.test(key)).toEqual(true);
-    expect(regexA.test(uuid.v4())).toEqual(false);
-    expect(regexB.test(uuid.v4())).toEqual(false);
+    expect(regexA.test(uuidv4())).toEqual(false);
+    expect(regexB.test(uuidv4())).toEqual(false);
     serverA.unreceive(key);
   });
 
   test('Receives strings and objects', async () => {
-    const key = uuid.v4();
-    const messageA = uuid.v4();
+    const key = uuidv4();
+    const messageA = uuidv4();
     const messageB = {
-      [uuid.v4()]: uuid.v4(),
+      [uuidv4()]: uuidv4(),
     };
     const { server: serverA, port } = peers[0];
     const clientA = new Client();
@@ -138,8 +139,8 @@ describe(`${count} peers in a ring with a receiver`, () => {
 
 
   test('Triggers open and close events from a local client', async () => {
-    const key = uuid.v4();
-    const message = uuid.v4();
+    const key = uuidv4();
+    const message = uuidv4();
     const { server: serverA, port } = peers[0];
     const clientA = new Client();
     await clientA.open(`ws://localhost:${port}`, {});
@@ -175,8 +176,8 @@ describe(`${count} peers in a ring with a receiver`, () => {
   });
 
   test('Triggers close events when a local client disconnects', async () => {
-    const key = uuid.v4();
-    const message = uuid.v4();
+    const key = uuidv4();
+    const message = uuidv4();
     const { server: serverA, port } = peers[0];
     const clientA = new Client();
     await clientA.open(`ws://localhost:${port}`, {});
@@ -211,8 +212,8 @@ describe(`${count} peers in a ring with a receiver`, () => {
   });
 
   test('Triggers open and close events from a remote client', async () => {
-    const key = uuid.v4();
-    const message = uuid.v4();
+    const key = uuidv4();
+    const message = uuidv4();
     const { server: serverA } = peers[0];
     const { server: serverB, port } = peers[1];
     const clientA = new Client();
@@ -249,8 +250,8 @@ describe(`${count} peers in a ring with a receiver`, () => {
   });
 
   test('Triggers close events when a remote client disconnects', async () => {
-    const key = uuid.v4();
-    const message = uuid.v4();
+    const key = uuidv4();
+    const message = uuidv4();
     const { server: serverA } = peers[0];
     const { server: serverB, port } = peers[1];
     const clientA = new Client();
@@ -297,8 +298,8 @@ describe(`${count} peers in a ring with a receiver`, () => {
     const stop = ws[1];
     const clientA = new Client();
     await clientA.open(`ws://localhost:${port}`, {});
-    const key = uuid.v4();
-    const message = uuid.v4();
+    const key = uuidv4();
+    const message = uuidv4();
     const [serverA] = getRandomServers(1);
     const [handleMessage, waitForMessage] = jestMockAndPromise();
     const [handleOpen, waitForOpen] = jestMockAndPromise();
@@ -338,8 +339,8 @@ describe(`${count} peers in a ring with a receiver`, () => {
     const ws = await startWebsocketServer('0.0.0.0', port);
     const stop = ws[1];
     const server = new Server(ws[0]);
-    const key = uuid.v4();
-    const message = uuid.v4();
+    const key = uuidv4();
+    const message = uuidv4();
     const [handleMessage, waitForMessage] = jestMockAndPromise();
     const [handleOpen, waitForOpen] = jestMockAndPromise();
     const [handleClose, waitForClose] = jestMockAndPromise();
@@ -382,8 +383,8 @@ describe(`${count} peers in a ring with a receiver`, () => {
   });
 
   test('Reassigns when a peer unreceives', async () => {
-    const key = uuid.v4();
-    const message = uuid.v4();
+    const key = uuidv4();
+    const message = uuidv4();
     const { server: serverA, port } = peers[0];
     const { server: serverB } = peers[1];
     const clientA = new Client();

@@ -1,7 +1,7 @@
 
-const uuid = require('uuid');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
+import { v4 as uuidv4 } from 'uuid';
+import Server from '../src';
+import startWebsocketServer from './lib/ws-server';
 //const Deepstream = require('deepstream.io');
 //const deepstream = require('deepstream.io-client-js');
 //const { CONSTANTS } = require('deepstream.io-client-js');
@@ -32,9 +32,9 @@ const runBraid = async () => {
   await Promise.all(peerPromises);
   const dataA = peers[0].data;
   const dataB = peers[Math.floor(peers.length / 2)].data;
-  const key = uuid.v4();
-  const valueA = { value: uuid.v4() };
-  const valueB = { value: uuid.v4() };
+  const key = uuidv4();
+  const valueA = { value: uuidv4() };
+  const valueB = { value: uuidv4() };
   let activeValueA = valueA;
   let activeValueB = valueB;
   let responseCount = 0;
@@ -105,9 +105,9 @@ const runBraid = async () => {
 //       }
 //     });
 //   });
-//   const name = uuid.v4();
-//   const valueA = { value: uuid.v4() };
-//   const valueB = { value: uuid.v4() };
+//   const name = uuidv4();
+//   const valueA = { value: uuidv4() };
+//   const valueB = { value: uuidv4() };
 //   const recordA = clientA.record.getRecord(name);
 //   const recordB = clientB.record.getRecord(name);
 //   await Promise.all([

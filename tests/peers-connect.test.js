@@ -1,12 +1,13 @@
 // @flow
 
 // const expect = require('expect');
-const Server = require('../src');
-const uuid = require('uuid');
-const { default: Client } = require('@bunchtogether/braid-client');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
-const { connectAndSync } = require('./lib/connect');
+import { v4 as uuidv4 } from 'uuid';
+
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import { connectAndSync } from './lib/connect';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 jest.setTimeout(60000);
 
@@ -14,8 +15,8 @@ const MAX_PEERS = 10;
 
 
 describe('Peer Connect', () => {
-  const key = uuid.v4();
-  let value = uuid.v4();
+  const key = uuidv4();
+  let value = uuidv4();
 
   const client = new Client();
   client.setReconnectHandler(() => false);
@@ -40,7 +41,7 @@ describe('Peer Connect', () => {
       if (items.length === 0) {
         return;
       }
-      value = uuid.v4();
+      value = uuidv4();
       for (const valueCallback of valueCallbacks) {
         valueCallback();
       }

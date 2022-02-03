@@ -1,11 +1,12 @@
 // @flow
 
 // const expect = require('expect');
-const Server = require('../src');
-const uuid = require('uuid');
-const { default: Client } = require('@bunchtogether/braid-client');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 jest.setTimeout(30000);
 
@@ -37,8 +38,8 @@ describe('Provider Connections', () => {
   });
 
   test('Should activate provider if subscriptions exist', async () => {
-    const key = uuid.v4();
-    const value = uuid.v4();
+    const key = uuidv4();
+    const value = uuidv4();
     const subscriptionPromise = new Promise((resolve, reject) => { // eslint-disable-line no-loop-func
       const timeout = setTimeout(() => {
         client.unsubscribe(key);

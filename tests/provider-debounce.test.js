@@ -1,10 +1,12 @@
 // @flow
 
-const uuid = require('uuid');
+import { v4 as uuidv4 } from 'uuid';
+
 // const { isEqual } = require('lodash');
-const { default: Client } = require('@bunchtogether/braid-client');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
+import Client from '@bunchtogether/braid-client';
+
+import Server from '../src';
+import startWebsocketServer from './lib/ws-server';
 
 const port = 10000 + Math.round(Math.random() * 10000);
 
@@ -18,7 +20,7 @@ describe('Provider debounce', () => {
     await clientA.open(`ws://localhost:${port}`);
     const clientB = new Client();
     await clientB.open(`ws://localhost:${port}`);
-    const key = uuid.v4();
+    const key = uuidv4();
     let isActive;
     const handle = (k, active) => {
       if (k === key) {
@@ -47,7 +49,7 @@ describe('Provider debounce', () => {
     await clientA.open(`ws://localhost:${port}`);
     const clientB = new Client();
     await clientB.open(`ws://localhost:${port}`);
-    const key = uuid.v4();
+    const key = uuidv4();
     let isActive;
     const handle = (k, active) => {
       if (k === key) {
@@ -76,7 +78,7 @@ describe('Provider debounce', () => {
     const server = new Server(ws);
     const client = new Client();
     await client.open(`ws://localhost:${port}`);
-    const key = uuid.v4();
+    const key = uuidv4();
     let isActive;
     const handle = (k, active) => {
       if (k === key) {

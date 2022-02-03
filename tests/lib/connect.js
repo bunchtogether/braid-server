@@ -2,7 +2,7 @@
 
 import type Server from '../../src';
 
-module.exports.connectAndSync = async (serverX:Server, portX:number, serverY:Server, portY:number) => {
+export const connectAndSync = async (serverX:Server, portX:number, serverY:Server, portY:number) => {
   const serverXSyncPromise = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       serverX.removeListener('peerSync', handlePeerSync);

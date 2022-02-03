@@ -1,11 +1,12 @@
 // @flow
 
 // const expect = require('expect');
-const crypto = require('crypto');
-const uuid = require('uuid');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import crypto from 'crypto';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 jest.setTimeout(60000);
 
@@ -53,7 +54,7 @@ describe('Large Map Sync', () => {
     });
     for (let i = 0; i < 50; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverB.set(uuid.v4(), randomString);
+      serverB.set(uuidv4(), randomString);
     }
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
     await peerSyncPromiseA1;
@@ -97,7 +98,7 @@ describe('Large Map Sync', () => {
     }
     for (let i = 0; i < 50; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverB.set(uuid.v4(), randomString);
+      serverB.set(uuidv4(), randomString);
     }
     await peerSyncPromiseA2;
     await peerSyncPromiseB2;
@@ -153,7 +154,7 @@ describe('Large Map Sync', () => {
     });
     for (let i = 0; i < 50; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverA.set(uuid.v4(), randomString);
+      serverA.set(uuidv4(), randomString);
     }
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
     await peerSyncPromiseA1;
@@ -196,7 +197,7 @@ describe('Large Map Sync', () => {
     peerConnection.close(1000, 'Peer Disconnect Test (Connection)');
     for (let i = 0; i < 50; i += 1) {
       const randomString = getRandomBase64(1024 * 1024);
-      serverA.set(uuid.v4(), randomString);
+      serverA.set(uuidv4(), randomString);
     }
     await peerSyncPromiseA2;
     await peerSyncPromiseB2;

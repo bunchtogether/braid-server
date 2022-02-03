@@ -1,9 +1,10 @@
 // @flow
 
-const uuid = require('uuid');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 const startPort = 10000 + Math.round(Math.random() * 10000);
 const count = 10;
@@ -41,7 +42,7 @@ describe('Custom sets', () => {
   });
 
   test('Should share custom sets', async () => {
-    const name = uuid.v4();
+    const name = uuidv4();
     for (const peer of peers) {
       const set = peer.server.sets[name];
       set.add(`${peer.server.id}`);

@@ -1,10 +1,11 @@
 // @flow
 
-const uuid = require('uuid');
-const { default: Client } = require('@bunchtogether/braid-client');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 const port = 10000 + Math.round(Math.random() * 10000);
 
@@ -27,14 +28,14 @@ describe('Simultaneous Subscriptions', () => {
   });
 
   test('Should open the connection', async () => {
-    const key = uuid.v4();
+    const key = uuidv4();
     server.provide('.*', (k, active) => {
       expect(k).toEqual(key);
       expect(active).toEqual(true);
     });
-    const value1 = uuid.v4();
-    const value2 = uuid.v4();
-    const value3 = uuid.v4();
+    const value1 = uuidv4();
+    const value2 = uuidv4();
+    const value3 = uuidv4();
     const clientA = new Client();
     await clientA.open(`ws://localhost:${port}`);
     await clientA.subscribe(key);

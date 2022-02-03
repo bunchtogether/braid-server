@@ -1,10 +1,11 @@
 // @flow
 
-const uuid = require('uuid');
-const { shuffle } = require('lodash');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import { shuffle } from 'lodash';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 const startPort = 10000 + Math.round(Math.random() * 10000);
 const count = 100;
@@ -36,8 +37,8 @@ describe(`${count} Peers in a ring`, () => {
   });
 
   test('Should peer', async () => {
-    const key = uuid.v4();
-    const value = uuid.v4();
+    const key = uuidv4();
+    const value = uuidv4();
     const [dataA] = getRandomDatas(1);
     dataA.set(key, value);
     for (const { data } of peers) {

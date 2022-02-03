@@ -1,9 +1,9 @@
 // @flow
 
-const { EventEmitter } = require('events');
-const WS = require('ws');
+import EventEmitter from 'events';
+import WS from 'ws';
 
-const {
+import {
   encode,
   decode,
   Credentials,
@@ -11,7 +11,7 @@ const {
   PeerRequest,
   PeerResponse,
   Unpeer,
-} = require('@bunchtogether/braid-messagepack');
+} from '@bunchtogether/braid-messagepack';
 
 class CloseError extends Error {
   declare code: number;
@@ -42,7 +42,7 @@ class CredentialsError extends Error {
   }
 }
 
-class PeerConnection extends EventEmitter {
+export default class PeerConnection extends EventEmitter {
   constructor(id: number, address:string, maxPayloadLength: number, credentials?:Object = {}) {
     super();
     this.id = id;
@@ -205,4 +205,3 @@ class PeerConnection extends EventEmitter {
   declare timeoutDuration: number;
 }
 
-module.exports = PeerConnection;

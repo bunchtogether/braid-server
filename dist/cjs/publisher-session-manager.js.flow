@@ -1,9 +1,9 @@
-//      
+// @flow
 
-const DirectedGraphMap = require('directed-graph-map');
+import DirectedGraphMap from 'directed-graph-map';
 
-class PublisherSessionManager {
-                                                
+export default class PublisherSessionManager {
+  declare map: DirectedGraphMap<string, string>;
 
   constructor() {
     this.map = new DirectedGraphMap();
@@ -13,17 +13,17 @@ class PublisherSessionManager {
     return this.map.size;
   }
 
-  add(key       , serverId       , socketId       , regexString       ) {
+  add(key:string, serverId:number, socketId:number, regexString:string) {
     const sessionKey = `${key}:${serverId}:${socketId}`;
     this.map.addEdge(sessionKey, regexString);
   }
 
-  removePublisher(key       , serverId       , socketId       ) {
+  removePublisher(key:string, serverId:number, socketId:number) {
     const sessionKey = `${key}:${serverId}:${socketId}`;
     this.map.removeSource(sessionKey);
   }
 
-  publishers(regexString       )                                 {
+  publishers(regexString:string):Array<[string, number, number]> {
     const results = [];
     const sessionKeys = this.map.getSources(regexString);
     for (const sessionKey of sessionKeys) {
@@ -35,10 +35,9 @@ class PublisherSessionManager {
     return results;
   }
 
-  regexes(key       , serverId       , socketId       )               {
+  regexes(key:string, serverId:number, socketId:number):Array<string> {
     const sessionKey = `${key}:${serverId}:${socketId}`;
     return [...this.map.getTargets(sessionKey)];
   }
 }
 
-module.exports = PublisherSessionManager;

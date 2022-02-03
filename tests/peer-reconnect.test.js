@@ -1,17 +1,18 @@
 // @flow
 
-const uuid = require('uuid');
-const expect = require('expect');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import expect from 'expect';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 jest.setTimeout(30000);
 
 describe('Peer Reconnect', () => {
   test('Should reconnect after one second if the source peer disconnects', async () => {
-    const keyA = uuid.v4();
-    const keyB = uuid.v4();
+    const keyA = uuidv4();
+    const keyB = uuidv4();
     const portA = 10000 + Math.round(Math.random() * 10000);
     const portB = portA + 1;
     const wsA = await startWebsocketServer('0.0.0.0', portA);
@@ -66,8 +67,8 @@ describe('Peer Reconnect', () => {
   });
 
   test('Should reconnect after one second if the target peer disconnects', async () => {
-    const keyA = uuid.v4();
-    const keyB = uuid.v4();
+    const keyA = uuidv4();
+    const keyB = uuidv4();
     const portA = 10000 + Math.round(Math.random() * 10000);
     const portB = portA + 1;
     const wsA = await startWebsocketServer('0.0.0.0', portA);

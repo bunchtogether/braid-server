@@ -1,11 +1,12 @@
 {
   "name": "@bunchtogether/braid-server",
   "version": "1.2.13",
-  "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
   "scripts": {
-    "build": "rm -rf ./dist; flow-remove-types ./src --out-dir ./dist && flow-copy-source ./src ./dist",
+    "build:esm": "cross-env BABEL_ENV=esm babel ./src --out-dir ./dist/esm --source-maps && flow-copy-source ./src ./dist/esm",
+    "build:cjs": "cross-env BABEL_ENV=cjs babel ./src --out-dir ./dist/cjs --source-maps && flow-copy-source ./src ./dist/cjs",
+    "build": "rm -rf ./dist && yarn build:esm && yarn build:cjs",
     "flow-typed": "./node_modules/.bin/flow-typed install --overwrite",
     "test": "yarn lint && yarn test:js",
     "test:js": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles tests",
@@ -15,7 +16,17 @@
     "coverage": "codecov",
     "documentation": "documentation readme dist/index.js --section='API'",
     "benchmark": "NODE_ENV=production flow-node --prof tests/benchmark.js && node --prof-process $(ls -tr isolate-* | tail -n1) && rm -rf isolate-*",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "sort-imports": "cd scripts; node sort-imports.js"
+  },
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js"
+    }
   },
   "jest": {
     "coverageDirectory": "./coverage/",
@@ -28,7 +39,8 @@
       "node_modules/(?!(p-queue))/"
     ],
     "moduleNameMapper": {
-      "observed-remove/map": "<rootDir>/node_modules/observed-remove/dist/cjs/map.js"
+      "observed-remove/map": "<rootDir>/node_modules/observed-remove/dist/cjs/map.js",
+      "observed-remove/set": "<rootDir>/node_modules/observed-remove/dist/cjs/set.js"
     },
     "testEnvironment": "node"
   },

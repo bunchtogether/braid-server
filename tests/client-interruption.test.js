@@ -1,10 +1,11 @@
 // @flow
 
-const expect = require('expect');
-const uuid = require('uuid');
-const { default: Client } = require('@bunchtogether/braid-client');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
+import { v4 as uuidv4 } from 'uuid';
+
+import expect from 'expect';
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import startWebsocketServer from './lib/ws-server';
 
 const { ConnectionError } = Client;
 
@@ -27,7 +28,7 @@ describe('Client Interruption', () => {
       credentialSubmissionCount += 1;
       return { success: true, code: 200, message: 'OK' };
     });
-    const credentials = { [uuid.v4()]: uuid.v4() };
+    const credentials = { [uuidv4()]: uuidv4() };
     const promiseA = client.open(`ws://localhost:${port}`, credentials);
     const promiseB = client.open(`ws://localhost:${port}`, credentials);
     await promiseA;
@@ -50,10 +51,10 @@ describe('Client Interruption', () => {
       openCount += 1;
     });
     let credentialSubmissionCount = 0;
-    const keyA = uuid.v4();
-    const valueA = uuid.v4();
-    const keyB = uuid.v4();
-    const valueB = uuid.v4();
+    const keyA = uuidv4();
+    const valueA = uuidv4();
+    const keyB = uuidv4();
+    const valueB = uuidv4();
     const credentialsReceivedPromise = new Promise((resolve, reject) => {
       server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
         try {
@@ -108,7 +109,7 @@ describe('Client Interruption', () => {
     const promiseB = client.open(`ws://localhost:${port}`, { [keyB]: valueB });
     await promiseA;
     await promiseB;
-    client.subscribe(uuid.v4());
+    client.subscribe(uuidv4());
     await credentialsReceivedPromise;
     await subscriptionPromise;
     await client.close();
@@ -129,10 +130,10 @@ describe('Client Interruption', () => {
       openCount += 1;
     });
     let credentialSubmissionCount = 0;
-    const keyA = uuid.v4();
-    const valueA = uuid.v4();
-    const keyB = uuid.v4();
-    const valueB = uuid.v4();
+    const keyA = uuidv4();
+    const valueA = uuidv4();
+    const keyB = uuidv4();
+    const valueB = uuidv4();
     const credentialsReceivedPromise = new Promise((resolve, reject) => {
       server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
         try {
@@ -187,7 +188,7 @@ describe('Client Interruption', () => {
     const promiseB = client.open(`ws://localhost:${port}#a=1`, { [keyB]: valueB });
     await promiseA;
     await promiseB;
-    client.subscribe(uuid.v4());
+    client.subscribe(uuidv4());
     await credentialsReceivedPromise;
     await subscriptionPromise;
     await client.close();
@@ -205,10 +206,10 @@ describe('Client Interruption', () => {
     const client = new Client();
 
     let credentialSubmissionCount = 0;
-    const keyA = uuid.v4();
-    const valueA = uuid.v4();
-    const keyB = uuid.v4();
-    const valueB = uuid.v4();
+    const keyA = uuidv4();
+    const valueA = uuidv4();
+    const keyB = uuidv4();
+    const valueB = uuidv4();
     const credentialsReceivedPromise = new Promise((resolve, reject) => {
       server.setCredentialsHandler(async (credentials: Object) => { // eslint-disable-line no-unused-vars
         // console.log(credentialSubmissionCount, JSON.stringify(credentials));
@@ -263,7 +264,7 @@ describe('Client Interruption', () => {
     await client.open(`ws://localhost:${port}`);
     client.sendCredentials({ [keyA]: valueA });
     client.sendCredentials({ [keyB]: valueB });
-    client.subscribe(uuid.v4());
+    client.subscribe(uuidv4());
     await credentialsReceivedPromise;
     await subscriptionPromise;
     await client.close();
@@ -283,8 +284,8 @@ describe('Client Interruption', () => {
       return { success: true, code: 200, message: 'OK' };
     });
     await client.open(`ws://localhost:${port}`);
-    const promiseA = client.sendCredentials({ [uuid.v4()]: uuid.v4() });
-    const promiseB = client.sendCredentials({ [uuid.v4()]: uuid.v4() });
+    const promiseA = client.sendCredentials({ [uuidv4()]: uuidv4() });
+    const promiseB = client.sendCredentials({ [uuidv4()]: uuidv4() });
     await promiseA;
     await promiseB;
     expect(credentialSubmissionCount).toEqual(2);
@@ -309,7 +310,7 @@ describe('Client Interruption', () => {
         return { success: true, code: 200, message: 'OK' };
       });
     });
-    const expectCredentialsToThrowPromise = expect(client.sendCredentials({ [uuid.v4()]: uuid.v4() })).rejects.toEqual(expect.objectContaining({
+    const expectCredentialsToThrowPromise = expect(client.sendCredentials({ [uuidv4()]: uuidv4() })).rejects.toEqual(expect.objectContaining({
       name: 'ServerRequestError',
       code: 502,
     }));
@@ -341,7 +342,7 @@ describe('Client Interruption', () => {
         return { success: true, code: 200, message: 'OK' };
       });
     });
-    const clientCredentialsPromise = client.sendCredentials({ [uuid.v4()]: uuid.v4() });
+    const clientCredentialsPromise = client.sendCredentials({ [uuidv4()]: uuidv4() });
     await credentialsReceivedPromise;
     emitError();
     await expect(clientCredentialsPromise).rejects.toEqual(expect.objectContaining({
@@ -359,8 +360,8 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const key = uuid.v4();
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    const key = uuidv4();
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     const subscriptionReceivedPromise = new Promise((resolve) => {
       server.setSubscribeRequestHandler(async (n:string, credentials: Object) => { // eslint-disable-line no-unused-vars
         resolve();
@@ -382,7 +383,7 @@ describe('Client Interruption', () => {
       code: 502,
     }));
     server.setSubscribeRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     await subscriptionPromise;
     await client.close();
     await server.close();
@@ -395,8 +396,8 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const key = uuid.v4();
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    const key = uuidv4();
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     let errorWasEmitted = false;
     const emitError = () => {
       client.emit('error', new Error('Example error'));
@@ -443,8 +444,8 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const key = uuid.v4();
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    const key = uuidv4();
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     let errorWasEmitted = false;
     const emitError = () => {
       client.emit('error', new ConnectionError('Example error'));
@@ -477,7 +478,7 @@ describe('Client Interruption', () => {
     }));
     await client.close();
     server.setSubscribeRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     await subscriptionPromise;
     await client.close();
     await server.close();
@@ -491,7 +492,7 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const key = uuid.v4();
+    const key = uuidv4();
     await client.open(`ws://localhost:${port}`);
     const subscribeRequestCredentialsCheckPromise = new Promise((resolve) => {
       client.on('subscribeRequestCredentialsCheck', (k:string) => {
@@ -506,8 +507,8 @@ describe('Client Interruption', () => {
       }
       return { success: true, code: 200, message: 'OK' };
     });
-    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
-    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
+    client.sendCredentials({ [uuidv4()]: uuidv4() });
+    client.sendCredentials({ [uuidv4()]: uuidv4() });
     await client.subscribe(key);
     await subscribeRequestCredentialsCheckPromise;
     await client.close();
@@ -521,8 +522,8 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const name = uuid.v4();
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    const name = uuidv4();
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     const eventSubscriptionReceivedPromise = new Promise((resolve) => {
       server.setEventSubscribeRequestHandler(async (k:string, credentials: Object) => { // eslint-disable-line no-unused-vars
         resolve();
@@ -544,7 +545,7 @@ describe('Client Interruption', () => {
       code: 502,
     }));
     server.setEventSubscribeRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     await eventSubscriptionPromise;
     await client.close();
     await server.close();
@@ -557,8 +558,8 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const name = uuid.v4();
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    const name = uuidv4();
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     let errorWasEmitted = false;
     const emitError = () => {
       client.emit('error', new Error('Example error'));
@@ -605,8 +606,8 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const name = uuid.v4();
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    const name = uuidv4();
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     let errorWasEmitted = false;
     const emitError = () => {
       client.emit('error', new ConnectionError('Example error'));
@@ -639,7 +640,7 @@ describe('Client Interruption', () => {
     }));
     await client.close();
     server.setEventSubscribeRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     await eventSubscriptionPromise;
     await client.close();
     await server.close();
@@ -652,7 +653,7 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const name = uuid.v4();
+    const name = uuidv4();
     await client.open(`ws://localhost:${port}`);
     const eventSubscribeRequestCredentialsCheckPromise = new Promise((resolve) => {
       client.on('eventSubscribeRequestCredentialsCheck', (n:string) => {
@@ -667,8 +668,8 @@ describe('Client Interruption', () => {
       }
       return { success: true, code: 200, message: 'OK' };
     });
-    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
-    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
+    client.sendCredentials({ [uuidv4()]: uuidv4() });
+    client.sendCredentials({ [uuidv4()]: uuidv4() });
     await client.addServerEventListener(name, () => {});
     await eventSubscribeRequestCredentialsCheckPromise;
     await client.close();
@@ -682,8 +683,8 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const name = uuid.v4();
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    const name = uuidv4();
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     const publishReceivedPromise = new Promise((resolve) => {
       server.setPublishRequestHandler(async (n:string, credentials: Object) => { // eslint-disable-line no-unused-vars
         resolve();
@@ -705,7 +706,7 @@ describe('Client Interruption', () => {
       code: 502,
     }));
     server.setPublishRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     await publishPromise;
     await client.close();
     await server.close();
@@ -718,8 +719,8 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const name = uuid.v4();
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    const name = uuidv4();
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     let errorWasEmitted = false;
     const emitError = () => {
       client.emit('error', new Error('Example error'));
@@ -766,8 +767,8 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const name = uuid.v4();
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    const name = uuidv4();
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     let errorWasEmitted = false;
     const emitError = () => {
       client.emit('error', new ConnectionError('Example error'));
@@ -800,7 +801,7 @@ describe('Client Interruption', () => {
     }));
     await client.close();
     server.setPublishRequestHandler(async () => ({ success: true, code: 200, message: 'OK' }));
-    await client.open(`ws://localhost:${port}`, { [uuid.v4()]: uuid.v4() });
+    await client.open(`ws://localhost:${port}`, { [uuidv4()]: uuidv4() });
     await publishPromise;
     await client.close();
     await server.close();
@@ -813,7 +814,7 @@ describe('Client Interruption', () => {
     const stopWebsocketServer = ws[1];
     const server = new Server(ws[0]);
     const client = new Client();
-    const name = uuid.v4();
+    const name = uuidv4();
     await client.open(`ws://localhost:${port}`);
     const publishRequestCredentialsCheckPromise = new Promise((resolve) => {
       client.on('publishRequestCredentialsCheck', (n:string) => {
@@ -828,8 +829,8 @@ describe('Client Interruption', () => {
       }
       return { success: true, code: 200, message: 'OK' };
     });
-    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
-    client.sendCredentials({ [uuid.v4()]: uuid.v4() });
+    client.sendCredentials({ [uuidv4()]: uuidv4() });
+    client.sendCredentials({ [uuidv4()]: uuidv4() });
     await client.startPublishing(name);
     await publishRequestCredentialsCheckPromise;
     await client.close();

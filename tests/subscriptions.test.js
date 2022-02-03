@@ -1,11 +1,12 @@
 // @flow
 
-const uuid = require('uuid');
-const { default: Client } = require('@bunchtogether/braid-client');
-const { shuffle } = require('lodash');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import { shuffle } from 'lodash';
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 const startPort = 10000 + Math.round(Math.random() * 10000);
 const count = 10;
@@ -67,7 +68,7 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
       for (const { server } of peers) {
         await expect(server.providers).toReceiveProperty(serverA.id, ['.*']);
       }
-      const key = uuid.v4();
+      const key = uuidv4();
       await new Promise((resolve, reject) => { // eslint-disable-line no-loop-func
         const timeout = setTimeout(() => {
           client.unsubscribe(key);
@@ -93,8 +94,8 @@ describe(`${count} peers in a ring with a subscriber client`, () => {
   });
 
   test('Should set a subscription value to undefined', async () => {
-    const key = uuid.v4();
-    const initialValue = uuid.v4();
+    const key = uuidv4();
+    const initialValue = uuidv4();
     const [serverA] = getRandomServers(1);
     serverA.set(key, initialValue);
     for (const { server } of peers) {

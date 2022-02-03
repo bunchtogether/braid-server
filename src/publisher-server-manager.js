@@ -1,6 +1,6 @@
 // @flow
 
-const DirectedGraphMap = require('directed-graph-map');
+import DirectedGraphMap from 'directed-graph-map';
 
 class PublisherServerManager {
   declare map: DirectedGraphMap<string, number>;
@@ -49,4 +49,4 @@ class PublisherServerManager {
   }
 }
 
-module.exports = PublisherServerManager;
+export default PublisherServerManager;

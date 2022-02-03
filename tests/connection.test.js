@@ -1,9 +1,10 @@
 // @flow
 
-const uuid = require('uuid');
-const { default: Client } = require('@bunchtogether/braid-client');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
+import { v4 as uuidv4 } from 'uuid';
+
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import startWebsocketServer from './lib/ws-server';
 
 const port = 10000 + Math.round(Math.random() * 10000);
 
@@ -14,12 +15,12 @@ describe('Connection', () => {
   let server;
   let client;
   const credentialsValueA = {
-    [uuid.v4()]: uuid.v4(),
-    [uuid.v4()]: uuid.v4(),
+    [uuidv4()]: uuidv4(),
+    [uuidv4()]: uuidv4(),
   };
   const credentialsValueB = {
-    [uuid.v4()]: uuid.v4(),
-    [uuid.v4()]: uuid.v4(),
+    [uuidv4()]: uuidv4(),
+    [uuidv4()]: uuidv4(),
   };
 
   beforeAll(async () => {

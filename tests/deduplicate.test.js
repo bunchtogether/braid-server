@@ -1,11 +1,12 @@
 // @flow
 
 // const expect = require('expect');
-const uuid = require('uuid');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-const isEqual = require('lodash/isEqual');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import isEqual from 'lodash/isEqual';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 jest.setTimeout(30000);
 
@@ -20,10 +21,10 @@ describe('Deduplication', () => {
     const serverB = new Server(wsB[0]);
     const stopWebsocketServerB = wsB[1];
     await serverA.connectToPeer(`ws://localhost:${portB}`, {});
-    const nameA = uuid.v4();
-    const nameB = uuid.v4();
-    const intermediateValue = { [uuid.v4()]: uuid.v4() };
-    const finalValue = { [uuid.v4()]: uuid.v4() };
+    const nameA = uuidv4();
+    const nameB = uuidv4();
+    const intermediateValue = { [uuidv4()]: uuidv4() };
+    const finalValue = { [uuidv4()]: uuidv4() };
     serverA.deduplicate = true;
     serverB.deduplicate = false;
     let aCountA = 0;

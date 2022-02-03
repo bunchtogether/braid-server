@@ -1,11 +1,12 @@
 // @flow
 
-const uuid = require('uuid');
-const { default: Client } = require('@bunchtogether/braid-client');
-const { isEqual } = require('lodash');
-const Server = require('../src');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
+import { v4 as uuidv4 } from 'uuid';
+
+import { isEqual } from 'lodash';
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 const startPort = 10000 + Math.round(Math.random() * 10000);
 const count = 10;
@@ -48,7 +49,7 @@ describe(`${count} peers in a ring with an event subscriber client`, () => {
   });
 
   test('Should add and remove event listeners', async () => {
-    const name = uuid.v4();
+    const name = uuidv4();
     const callback = () => {};
     await client.addServerEventListener(name, callback);
     await client.removeServerEventListener(name, callback);
@@ -56,8 +57,8 @@ describe(`${count} peers in a ring with an event subscriber client`, () => {
 
   test('Should listen for events', async () => {
     for (const { server } of peers) {
-      const name = uuid.v4();
-      const emittedArgs = [uuid.v4(), uuid.v4(), uuid.v4()];
+      const name = uuidv4();
+      const emittedArgs = [uuidv4(), uuidv4(), uuidv4()];
       await new Promise(async (resolve) => { // eslint-disable-line no-loop-func
         const callback = (...args) => {
           if (isEqual(emittedArgs, args)) {
@@ -83,8 +84,8 @@ describe(`${count} peers in a ring with an event subscriber client`, () => {
       didReceiveCallbackB = true;
     };
     for (const { server } of peers) {
-      const name = uuid.v4();
-      const emittedArgs = [uuid.v4(), uuid.v4(), uuid.v4()];
+      const name = uuidv4();
+      const emittedArgs = [uuidv4(), uuidv4(), uuidv4()];
       await clientB.addServerEventListener(name, callbackB);
       await new Promise(async (resolve) => { // eslint-disable-line no-loop-func
         const callback = (...args) => {

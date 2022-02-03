@@ -1,12 +1,13 @@
 // @flow
 
-const expect = require('expect');
-const Server = require('../src');
-const uuid = require('uuid');
-const { default: Client } = require('@bunchtogether/braid-client');
-const startWebsocketServer = require('./lib/ws-server');
-require('./lib/map-utils');
-const { connectAndSync } = require('./lib/connect');
+import { v4 as uuidv4 } from 'uuid';
+
+import expect from 'expect';
+import Client from '@bunchtogether/braid-client';
+import Server from '../src';
+import { connectAndSync } from './lib/connect';
+import './lib/map-utils';
+import startWebsocketServer from './lib/ws-server';
 
 jest.setTimeout(30000);
 
@@ -14,7 +15,7 @@ describe('Provider Dropoff', () => {
   test('Should connect to a different server', async () => {
     const client = new Client();
     client.timeoutDuration = 3000;
-    const key = uuid.v4();
+    const key = uuidv4();
     const value = 'Y';
     const portA = 1001;
     const portB = 1002;
@@ -39,7 +40,7 @@ describe('Provider Dropoff', () => {
       if (active) {
         serverA.set(k, value);
       } else {
-        // serverA.set(k, uuid.v4());
+        // serverA.set(k, uuidv4());
       }
     };
     const handlerB = (k, active) => {
@@ -49,7 +50,7 @@ describe('Provider Dropoff', () => {
       if (active) {
         serverB.set(k, value);
       } else {
-        // serverB.set(k, uuid.v4());
+        // serverB.set(k, uuidv4());
       }
     };
     const handlerC = (k, active) => {
@@ -59,7 +60,7 @@ describe('Provider Dropoff', () => {
       if (active) {
         serverC.set(k, value);
       } else {
-        // serverC.set(k, uuid.v4());
+        // serverC.set(k, uuidv4());
       }
     };
     const handlerD = (k, active) => {
@@ -69,7 +70,7 @@ describe('Provider Dropoff', () => {
       if (active) {
         serverD.set(k, value);
       } else {
-        // serverD.set(k, uuid.v4());
+        // serverD.set(k, uuidv4());
       }
     };
 

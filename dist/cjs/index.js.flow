@@ -1,60 +1,68 @@
 // @flow
 
-import type { UWSTemplatedApp, UWSWebSocket } from './uWebSockets';
+import { v4 as uuidv4 } from 'uuid';
 
-const uuid = require('uuid');
-const crypto = require('crypto');
-const { merge } = require('lodash');
-const { default: PQueue } = require('p-queue');
-const farmhash = require('farmhash');
-const { hash32, hash64 } = require('@bunchtogether/hash-object');
-const { ObservedRemoveMap, ObservedRemoveSet } = require('observed-remove');
-const DirectedGraphMap = require('directed-graph-map');
-const LruCache = require('lru-cache');
-const { EventEmitter } = require('events');
-const PeerConnection = require('./peer-connection');
-const PublisherServerManager = require('./publisher-server-manager');
-const PublisherSessionManager = require('./publisher-session-manager');
-const makeLogger = require('./lib/logger');
-const requestIp = require('./lib/request-ip');
-const {
-  encode,
-  decode,
+import { merge } from 'lodash';
+import crypto from 'crypto';
+import DirectedGraphMap from 'directed-graph-map';
+import EventEmitter from 'events';
+import farmhash from 'farmhash';
+import LruCache from 'lru-cache';
+import ObservedRemoveSet from 'observed-remove/set';
+import ObservedRemoveMap from 'observed-remove/map';
+import PQueue from 'p-queue';
+import {
+  ActiveProviderDump,
+  BraidEvent,
+  BraidSocketEvent,
   Credentials,
   CredentialsResponse,
+  CustomMapDump,
+  CustomSetDump,
   DataDump,
-  ProviderDump,
-  ActiveProviderDump,
-  ReceiverDump,
-  PeerDump,
-  PeerSubscriptionDump,
-  PeerSync,
-  PeerSyncResponse,
-  PeerRequest,
-  PeerResponse,
-  SubscribeRequest,
-  SubscribeResponse,
-  Unsubscribe,
+  DataSyncDeletions,
+  DataSyncInsertions,
   EventSubscribeRequest,
   EventSubscribeResponse,
   EventUnsubscribe,
-  BraidEvent,
-  BraidSocketEvent,
+  MergeChunksPromise,
+  MultipartContainer,
+  PeerDump,
+  PeerRequest,
+  PeerResponse,
+  PeerSubscriptionDump,
+  PeerSync,
+  PeerSyncResponse,
+  ProviderDump,
   PublishRequest,
   PublishResponse,
-  PublisherOpen,
   PublisherClose,
   PublisherMessage,
+  PublisherOpen,
   PublisherPeerMessage,
-  MultipartContainer,
-  MergeChunksPromise,
-  DataSyncInsertions,
-  DataSyncDeletions,
-  CustomMapDump,
-  CustomSetDump,
+  ReceiverDump,
+  SubscribeRequest,
+  SubscribeResponse,
   Unpublish,
+  Unsubscribe,
+  decode,
+  encode,
   isNativeAccelerationEnabled,
-} = require('@bunchtogether/braid-messagepack');
+} from '@bunchtogether/braid-messagepack';
+import {
+  hash32,
+  hash64,
+} from '@bunchtogether/hash-object';
+import makeLogger from './lib/logger';
+import requestIp from './lib/request-ip';
+import PeerConnection from './peer-connection';
+import PublisherServerManager from './publisher-server-manager';
+import PublisherSessionManager from './publisher-session-manager';
+
+import type {
+  UWSTemplatedApp,
+  UWSWebSocket,
+} from './uWebSockets';
 
 type Logger = {
   debug: (string) => *,
@@ -768,13 +776,13 @@ class Server extends EventEmitter {
   }
 
   emitToClients(name: string, ...args:Array<any>) {
-    const id = uuid.v4();
+    const id = uuidv4();
     this.publishEvent(name, args, id);
     this.publishToPeers(new BraidEvent(name, args, id, [this.id]));
   }
 
   emitToSocket(name: string, peerId:number, socketId:number, ...args:Array<any>) {
-    const id = uuid.v4();
+    const id = uuidv4();
     if (this.id === peerId) {
       this.publishSocketEvent(name, args, socketId, id);
     } else {
@@ -2529,4 +2537,4 @@ class Server extends EventEmitter {
   declare _customSets: Map<string, ObservedRemoveSet<any>>;
 }
 
-module.exports = Server;
+export default Server;

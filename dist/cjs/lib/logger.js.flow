@@ -1,10 +1,14 @@
-//      
-const colors = require('colors/safe');
-const { createLogger, transports } = require('winston');
-const colorize = require('logform/colorize');
-const combine = require('logform/combine');
-const timestamp = require('logform/timestamp');
-const printf = require('logform/printf');
+// @flow
+import colors from 'colors/safe';
+
+import colorize from 'logform/colorize';
+import combine from 'logform/combine';
+import printf from 'logform/printf';
+import timestamp from 'logform/timestamp';
+import {
+  createLogger,
+  transports,
+} from 'winston';
 
 const loggers = {};
 
@@ -14,7 +18,7 @@ console._stdout = process.stdout; // eslint-disable-line no-underscore-dangle,no
 // $FlowFixMe
 console._stderr = process.stderr; // eslint-disable-line no-underscore-dangle,no-console
 
-module.exports = (name        ) => {
+export default (name: string) => {
   const cached = loggers[name];
   if (cached) {
     return cached;
