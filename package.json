@@ -1,6 +1,6 @@
 {
   "name": "@bunchtogether/braid-server",
-  "version": "1.2.12",
+  "version": "1.2.13",
   "main": "dist/index.js",
   "repository": "https://github.com/bunchtogether/braid-server.git",
   "author": "johnwehr@bunchtogether.com",
@@ -27,12 +27,15 @@
     "transformIgnorePatterns": [
       "node_modules/(?!(p-queue))/"
     ],
+    "moduleNameMapper": {
+      "observed-remove/map": "<rootDir>/node_modules/observed-remove/dist/cjs/map.js"
+    },
     "testEnvironment": "node"
   },
   "devDependencies": {
-    "@babel/cli": "^7.16.8",
-    "@babel/core": "^7.16.12",
-    "@babel/eslint-parser": "^7.16.5",
+    "@babel/cli": "^7.17.0",
+    "@babel/core": "^7.17.0",
+    "@babel/eslint-parser": "^7.17.0",
     "@babel/plugin-proposal-class-properties": "^7.16.5",
     "@babel/plugin-transform-flow-strip-types": "^7.16.5",
     "@babel/preset-env": "^7.16.11",
@@ -41,7 +44,7 @@
     "@babel/plugin-transform-modules-commonjs": "^7.16.8",
     "@babel/preset-flow": "^7.16.7",
     "babel-jest": "^27.4.6",
-    "@bunchtogether/braid-client": "1.2.12",
+    "@bunchtogether/braid-client": "1.2.13",
     "babel-eslint": "^10.1.0",
     "codecov": "^3.8.2",
     "cross-env": "^7.0.3",
@@ -57,7 +60,7 @@
     "expect": "^27.4.6",
     "flow-bin": "^0.130.0",
     "flow-copy-source": "^2.0.9",
-    "flow-remove-types": "^2.170.0",
+    "flow-remove-types": "^2.171.0",
     "flow-typed": "^3.6.1",
     "husky": "^7.0.4",
     "jest": "^27.4.7",
@@ -65,7 +68,7 @@
     "uWebSockets.js": "https://github.com/uNetworking/uWebSockets.js/archive/v20.6.0.tar.gz"
   },
   "dependencies": {
-    "@bunchtogether/braid-messagepack": "1.2.11",
+    "@bunchtogether/braid-messagepack": "1.2.13",
     "@bunchtogether/hash-object": "^1.0.7",
     "colors": "^1.4.0",
     "directed-graph-map": "1.2.8",
@@ -75,7 +78,7 @@
     "logform": "^2.3.2",
     "lru-cache": "^6.0.0",
     "msgpackr-extract": "^1.0.16",
-    "observed-remove": "2.3.0",
+    "observed-remove": "2.3.1",
     "p-queue": "^7.2.0",
     "uuid": "^8.3.2",
     "winston": "^3.5.1",

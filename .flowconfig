@@ -16,5 +16,5 @@ flow/
 
 [options]
 traces=3
-
+module.name_mapper='observed-remove/map' -> '<PROJECT_ROOT>/node_modules/observed-remove/dist/cjs/map.js'
 
